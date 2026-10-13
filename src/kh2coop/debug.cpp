@@ -185,9 +185,19 @@ static LONG CALLBACK CrashLogger(EXCEPTION_POINTERS* e) {
 // Crash under investigation: a script asks for the position of an effect instance (EffectPos 0x1402be970 ->
 // instance+0x30 node) that was already killed (EffectKill 0x1402be8a0 clears +0x30). Every kill is recorded
 // with its call stack; a position request on a killed instance logs who killed it and gets a zero vector.
-struct Kill { uintptr_t inst; uintptr_t stack[5]; int frame; };
-static Kill g_kills[512];
-static volatile LONG g_killNext;
+struct Kill { uintptr_t inst; uintptr_t stack[5]; int frame; bool p2Update; };
+static const size_t kKillSlots = 1 << 16;   // last kill of each instance (open addressing, keyed by address)
+static Kill* g_kills;
+static Kill* KillSlot(uintptr_t inst, bool create) {
+    if (!g_kills) g_kills = static_cast<Kill*>(VirtualAlloc(nullptr, sizeof(Kill) * kKillSlots, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+    if (!g_kills) return nullptr;
+    size_t i = (inst >> 4) * 0x9E3779B97F4A7C15ull >> 48;
+    for (size_t n = 0; n < 64; n++, i = (i + 1) & (kKillSlots - 1)) {
+        if (g_kills[i].inst == inst) return &g_kills[i];
+        if (!g_kills[i].inst) return create ? &g_kills[i] : nullptr;
+    }
+    return create ? &g_kills[i] : nullptr;
+}
 using EffectFn = void (*)(uintptr_t inst);
 using EffectPosFn = void* (*)(uintptr_t inst);
 static EffectFn o_EffectKill;
@@ -196,10 +206,13 @@ static float g_zero[4];
 
 static void h_EffectKill(uintptr_t inst) {
     if (Field<uintptr_t>(inst, 0x30)) {
-        Kill& k = g_kills[InterlockedIncrement(&g_killNext) & 511];
+        Kill* slot = KillSlot(inst, true);
+        if (!slot) { o_EffectKill(inst); return; }
+        Kill& k = *slot;
         k = {};
         k.inst = inst;
         k.frame = g_frame;
+        k.p2Update = party::InP2Update();
         void* frames[16];
         USHORT n = RtlCaptureStackBackTrace(1, 16, frames, nullptr);
         for (USHORT i = 0, j = 0; i < n && j < 5; i++) {
@@ -229,12 +242,11 @@ static void* h_EffectPos(uintptr_t inst) {
             Log("EFECTO MUERTO consultado (%s): %llx (frame %d) <- %llx <- %llx <- %llx <- %llx <- %llx",
                 node ? "memoria liberada" : "matado", Rel(inst), g_frame, Rel(st[0]), Rel(st[1]), Rel(st[2]), Rel(st[3]), Rel(st[4]));
             bool found = false;
-            for (int i = 0; i < 512; i++) {
-                const Kill& k = g_kills[i];
-                if (k.inst != inst) continue;
+            if (const Kill* k = KillSlot(inst, false)) {
                 found = true;
-                Log("  matado en frame %d: %llx <- %llx <- %llx <- %llx <- %llx", k.frame, Rel(k.stack[0]),
-                    Rel(k.stack[1]), Rel(k.stack[2]), Rel(k.stack[3]), Rel(k.stack[4]));
+                Log("  matado en frame %d (%s): %llx <- %llx <- %llx <- %llx <- %llx", k->frame,
+                    k->p2Update ? "update de P2" : "fuera del update de P2", Rel(k->stack[0]),
+                    Rel(k->stack[1]), Rel(k->stack[2]), Rel(k->stack[3]), Rel(k->stack[4]));
             }
             if (!found) Log("  (sin registro de muerte: matado antes de cargar el nucleo o por otra via)");
             Log("  jugador %llx, Sora P2 %llx", Rel(kh2::Player()), Rel(party::P2Sora()));
@@ -254,10 +266,35 @@ static void* h_EffectPos(uintptr_t inst) {
     return o_EffectPos(inst);
 }
 
+// An effect instance whose start fails (EffectStart 0x1402bec80 -> 0 leaves +0x30 null) is what scripts later
+// query as "dead": log those failures with the effect data they were started with and who started them.
+using EffectStartFn = int (*)(uintptr_t inst, uintptr_t arg);
+static EffectStartFn o_EffectStart;
+static int h_EffectStart(uintptr_t inst, uintptr_t arg) {
+    int r = o_EffectStart(inst, arg);
+    if (!r && Field<int32_t>(inst, 8) != 4) {
+        static int n;
+        if (n++ < 40) {
+            void* frames[16];
+            uintptr_t st[6] = {};
+            USHORT c = RtlCaptureStackBackTrace(1, 16, frames, nullptr);
+            for (USHORT i = 0, j = 0; i < c && j < 6; i++) {
+                uintptr_t f = (uintptr_t)frames[i];
+                if (f >= g_base && f < g_base + 0x2c00000) st[j++] = f;
+            }
+            Log("EFECTO NO ARRANCA %llx: datos %llx idx %d tipo %d (%s) <- %llx <- %llx <- %llx <- %llx <- %llx <- %llx",
+                Rel(inst), Rel(Field<uintptr_t>(inst, 0x20)), Field<int32_t>(inst, 0x28), Field<int32_t>(inst, 0x18),
+                party::InP2Update() ? "update P2" : "fuera", Rel(st[0]), Rel(st[1]), Rel(st[2]), Rel(st[3]), Rel(st[4]), Rel(st[5]));
+        }
+    }
+    return r;
+}
+
 bool Install() {
     g_crashVeh = AddVectoredExceptionHandler(1, CrashLogger);
     return Hook("MapDraw", 0x1401a5180, "40555356574154415541564157488dac", (void*)h_MapDraw, (void**)&o_MapDraw)
         && Hook("EffectKill", 0x1402be8a0, "40534883ec2081490c01000100488bd9", (void*)h_EffectKill, (void**)&o_EffectKill)
+        && Hook("EffectStart", 0x1402bec80, "40534883ec4083790804488bd90f2974", (void*)h_EffectStart, (void**)&o_EffectStart)
         && Hook("EffectPos", 0x1402be970, "488b4930e967460000cccccccccccccc", (void*)h_EffectPos, (void**)&o_EffectPos);
 }
 
@@ -283,8 +320,25 @@ static void LogXInputUsers() {
     }
 }
 
+// Diagnosing: the second Sora's MP refilling by itself. When it goes up, watch who writes it (once).
+static void WatchP2Mp() {
+    static int last = -1;
+    static bool done = false;
+    uintptr_t p2 = party::P2Sora();
+    uintptr_t slot = p2 ? Field<uintptr_t>(p2, kh2::obj::Status) : 0;
+    if (!slot) { last = -1; return; }
+    int mp = Field<int32_t>(slot, 0x180);
+    if (last >= 0 && mp > last && !done) {
+        done = true;
+        Log("PM de Sora P2 sube %d -> %d (ficha %llx)", last, mp, Rel(slot));
+        StartWatch("PM de Sora P2", {{slot + 0x180, 1, 4}}, 3000);
+    }
+    last = mp;
+}
+
 void Frame() {
     g_gameThread = GetCurrentThreadId();
+    WatchP2Mp();
     LogXInputUsers();
     if (g_traceFrames > 0) g_traceFrames--;
     if (KeyPressed(VK_F5)) { g_traceFrames = 2; Log("traza MapDraw de un frame"); }

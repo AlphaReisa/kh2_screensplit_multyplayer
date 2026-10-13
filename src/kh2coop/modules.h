@@ -41,6 +41,8 @@ namespace party {
 bool Install();
 void Frame();
 uintptr_t P2Sora();                 // live second YS::SORA, or 0
+bool InP2Update();          // inside the second Sora's object update
+void Shutdown();            // core unload: player 2 leaves (waits for the game thread)
 }
 
 // ---------------------------------------------------------------- Goofy driven by player 2 (friend.cpp)
@@ -70,6 +72,11 @@ void Leave();
 void SetInP1Update(bool on);
 bool OwnsHudObject(uintptr_t o);
 int PoolOf(uintptr_t o);   // diagnostics
+}
+
+// ---------------------------------------------------------------- player 2's magic effects (magic.cpp)
+namespace magic {
+bool Install();
 }
 
 // ---------------------------------------------------------------- diagnostics (debug.cpp, debug builds only)

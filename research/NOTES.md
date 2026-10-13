@@ -166,8 +166,14 @@ F1 modos de composición, F9 flush DMA manual, F10 activar/desactivar fix de ín
   0x1403d5c50 (0 = g_Player) responden P2 en el contexto de P2.
 - Movimiento: stick -> mundo con la cámara actual (0x1403a7fb0, GetCamera 0x14019ce40 = banco[índice]): durante el
   update de P2, la ranura 1 = cámara 2 guardada tras su commit e índice 1.
-- PENDIENTE: scripts de magia/ataque consultan efectos ya muertos (0x14041e2c0 -> 0x1402be970, +0x30 = 0); la build
-  debug lo esquiva y registra. Barra de PM de P2 se rellena sola.
+- Efectos de magia (v0.39): un contenedor de efectos por magia cargada (tabla 0x142a23a80 +0x18); el lanzamiento de
+  un Sora mataba por id los efectos del otro (Reflejo) y su script consultaba un efecto muerto (cierre en 0x14041e2c0).
+  P2 tiene contenedores propios (ContainerInit 0x1402c6320, en la carga de zona 0x1403c5a90; limpieza
+  0x1402c6490 + 0x1402c5730 antes de 0x1403c5750) y su CastMagic arranca el script (0x1403e1790(script, 0x14,
+  args, count); args[1] = contenedor) con el suyo.
+- El PM/HP que "se recupera solo" junto a un punto de guardado es del juego (0x140418f30 re-inicializa las fichas).
+- Estado que sobrevive a recargas del núcleo: bloque Persistent (dirección en la variable de entorno KH2COOP_STATE).
+- PENDIENTE: con Reflejo lanzado a la vez solo se ve una barrera.
 
 ## Pendiente
 - [ ] Confirmar en vivo g_Player / g_Sora y la party (Donald/Goofy) en memoria

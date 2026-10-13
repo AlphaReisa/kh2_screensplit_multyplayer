@@ -107,9 +107,13 @@ static void* h_SoraCtor(void* self, void* objentry, int form, uint64_t p4, void*
 // Per-object update. The P2 Sora runs with pad 0 and pad 1 swapped, so all its pad reads (its own command
 // menu included) see player 2, in P2's HUD context, so its menu draws on P2's own menu HUD, and with camera 2
 // as the current camera, so its movement and targeting are relative to player 2's view.
+static bool g_inP2Update = false;
+bool InP2Update() { return g_inP2Update; }
+
 static void h_ObjUpdate(intptr_t o) {
     uintptr_t p2 = P2Sora();
     if (p2 && (uintptr_t)o == p2) {
+        g_inP2Update = true;
         input::SwapPads();
         cmdmenu::Enter();
         split::BeginP2View();
@@ -117,6 +121,7 @@ static void h_ObjUpdate(intptr_t o) {
         split::EndP2View();
         cmdmenu::Leave();
         input::SwapPads();
+        g_inP2Update = false;
         return;
     }
     bool p1 = (uintptr_t)o == kh2::Player();
@@ -185,23 +190,27 @@ static void SoraToGoofy(uintptr_t sora) {
     Log("Sora P2 -> Goofy (%llx)", Rel(goofy));
 }
 
+static volatile bool g_shuttingDown = false;
+
 static void FollowJoin() {
-    bool want = input::Joined() && g_cfg.secondSora;
-    if (want == g_coopMode) return;
-    uintptr_t p1 = kh2::Player();
-    if (!p1) { g_coopMode = want; return; }   // no area loaded: applies when one loads
-    // Like the Drive-form change, the swap waits until the character is standing idle: an object destroyed in
+    bool want = input::Joined() && g_cfg.secondSora && !g_shuttingDown;
+    uintptr_t sora = P2Sora();
+    if (!kh2::Player()) { g_coopMode = want; return; }   // no area loaded: applies when one loads
+    // Like the Drive-form change, a swap waits until the character is standing idle: an object destroyed in
     // the middle of an action leaves that action's pending command / references behind.
-    if (want) {
-        friendctl::Refresh();
-        uintptr_t goofy = friendctl::Goofy();
-        if (!goofy) g_coopMode = true;
-        else if (kh2::InIdleAction(goofy)) GoofyToSora(goofy);
-    } else if (uintptr_t sora = P2Sora()) {
-        if (kh2::InIdleAction(sora)) SoraToGoofy(sora);
-    } else {
-        g_coopMode = false;
+    if (!want) {
+        if (sora) {   // also a second Sora left over without player 2 (e.g. found after a core reload)
+            if (kh2::InIdleAction(sora) || g_shuttingDown) SoraToGoofy(sora);
+        } else {
+            g_coopMode = false;
+        }
+        return;
     }
+    if (sora || g_coopMode) { g_coopMode = true; return; }
+    friendctl::Refresh();
+    uintptr_t goofy = friendctl::Goofy();
+    if (!goofy) g_coopMode = true;
+    else if (kh2::InIdleAction(goofy)) GoofyToSora(goofy);
 }
 
 // ---------------------------------------------------------------- frame
@@ -246,6 +255,13 @@ void Frame() {
     if (g_repairFrames > 0) { g_repairFrames--; RepairP1Pointers(g_repairP1, P2Sora()); }
     FollowJoin();
     if (KeyPressed(g_cfg.keyRepair)) RepairExisting();
+}
+
+// Core unload (loader thread): player 2 leaves first, on the game thread, so nothing of player 2's (its
+// command menu above all, which needs this core's context switching) runs once the hooks are gone.
+void Shutdown() {
+    g_shuttingDown = true;
+    for (int i = 0; i < 100 && P2Sora(); i++) Sleep(20);
 }
 
 bool Install() {

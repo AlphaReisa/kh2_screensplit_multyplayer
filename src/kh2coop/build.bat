@@ -8,7 +8,7 @@ if not exist build mkdir build
 if not exist build\obj mkdir build\obj
 set MH=..\third_party\minhook
 set MHSRC=%MH%\src\buffer.c %MH%\src\hook.c %MH%\src\trampoline.c %MH%\src\hde\hde64.c
-set CORE=core.cpp common.cpp game.cpp split.cpp input.cpp party.cpp friend.cpp hud.cpp cmdmenu.cpp debug.cpp
+set CORE=core.cpp common.cpp game.cpp split.cpp input.cpp party.cpp friend.cpp hud.cpp cmdmenu.cpp magic.cpp debug.cpp
 set FLAGS=/nologo /O2 /MT /EHsc /std:c++17 /LD /utf-8 /W3 /I%MH%\include
 if "%1"=="loader" goto loader
 if "%1"=="debug" set FLAGS=%FLAGS% /DKH2COOP_DEBUG

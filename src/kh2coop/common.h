@@ -44,4 +44,13 @@ struct Config {
 extern Config g_cfg;
 void LoadConfig();
 
+// ---------------------------------------------------------------- state that outlives core reloads
+// One block per game process, zero-filled on first use; its address is kept in the process environment so a
+// reloaded core finds the same block (the game holds pointers into it, e.g. player 2's command menu).
+struct Persistent {
+    void* cmdMenu;               // cmdmenu.cpp: player 2's FIELD_COMMAND + HUD context block
+    uintptr_t magicContainers[6];  // magic.cpp: player 2's effect containers (game heap)
+};
+Persistent& Persist();
+
 }  // namespace kc

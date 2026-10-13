@@ -1,6 +1,7 @@
 #include "common.h"
 #include <cstdio>
 #include <cctype>
+#include <cstdlib>
 #include "MinHook.h"
 
 namespace kc {
@@ -58,6 +59,20 @@ static int ParseKey(const char* s, int def) {
     }
     if (!s[1] && isalnum((unsigned char)s[0])) return toupper((unsigned char)s[0]);
     return def;
+}
+
+Persistent& Persist() {
+    static Persistent* p = nullptr;
+    if (p) return *p;
+    char buf[32] = {};
+    if (GetEnvironmentVariableA("KH2COOP_STATE", buf, sizeof(buf)))
+        p = reinterpret_cast<Persistent*>(_strtoui64(buf, nullptr, 16));
+    if (!p) {
+        p = static_cast<Persistent*>(VirtualAlloc(nullptr, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+        sprintf_s(buf, "%llx", (unsigned long long)p);
+        SetEnvironmentVariableA("KH2COOP_STATE", buf);
+    }
+    return *p;
 }
 
 void LoadConfig() {

@@ -72,6 +72,7 @@ static bool Construct() {
     void* mem = VirtualAlloc(nullptr, sizeof(Block), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (!mem) return false;
     g_block = static_cast<Block*>(mem);
+    Persist().cmdMenu = g_block;   // a reloaded core keeps using it (the game holds pointers into it)
     uintptr_t fc = Fc2();
     GameFn<void (*)(uintptr_t)>(0x1403b1c70)(fc);   // PLAYER_COMMAND constructor
     Field<uintptr_t>(fc, 0) = VA(kFieldCommandVt);
@@ -97,6 +98,8 @@ void BindP2(uintptr_t p2) {
     Field<uintptr_t>(p2, 0xdc8) = fc + 0xbe8;
     VFunc<void (*)(uintptr_t, uintptr_t, uintptr_t)>(fc, 1)(fc, p2, Field<uintptr_t>(p2, 0xdb8));   // Init(owner, pad)
     Field<uintptr_t>(fc, 0xc38) = p2;
+    GameFn<void (*)(int)>(0x140167280)(1);                   // P2's menu pieces update again (shown on open)
+    GameFn<void (*)(int)>(0x140167280)(2);
     if (Field<int32_t>(fc, 0xc40) == 0) {
         Field<uint32_t>(fc, 0xb3c) |= 1;
         Field<uint32_t>(fc, 0x24) &= ~1u;
@@ -118,23 +121,19 @@ void UnbindP2(uintptr_t p2) {
     GameFn<void (*)(uintptr_t)>(0x1403dd5a0)(fc + 0xbe8);   // lock-on
     VFunc<void (*)(uintptr_t)>(fc, 5)(fc);                   // Term
     Field<uintptr_t>(fc, 0xc38) = 0;
-    GameFn<void (*)(int)>(0x140166bd0)(1);                   // hide P2's menu (groups remapped in context)
-    GameFn<void (*)(int)>(0x140166bd0)(2);
+    for (int g : {1, 2}) {                                   // P2's menu (groups remapped in context):
+        GameFn<void (*)(int)>(0x140166bd0)(g);               //   hidden
+        GameFn<void (*)(int)>(0x1401673b0)(g);               //   and not updated while P2 is away
+    }
     Leave();
     Field<uintptr_t>(p2, 0xdc0) = 0;
     Field<uintptr_t>(p2, 0xdd0) = 0;
     Field<uintptr_t>(p2, 0xdc8) = 0;
 }
 
-// A second Sora that still uses P1's menu (just built, or found after a core reload) gets P2's; after a core
-// reload P2's block is recovered from the Sora.
+// A second Sora that still uses P1's menu (e.g. found after a core reload) gets P2's.
 void Adopt(uintptr_t p2) {
-    uintptr_t cur = Field<uintptr_t>(p2, 0xdc0);
-    if (!g_block && cur && cur != VA(kFieldCommand) && reinterpret_cast<Block*>(cur)->magic == kMagic) {
-        g_block = reinterpret_cast<Block*>(cur);
-        Log("menu P2 recuperado en %llx", (unsigned long long)cur);
-    }
-    if (cur == VA(kFieldCommand)) BindP2(p2);
+    if (Field<uintptr_t>(p2, 0xdc0) == VA(kFieldCommand)) BindP2(p2);
 }
 
 // ---------------------------------------------------------------- hooks
@@ -259,6 +258,11 @@ bool OwnsHudObject(uintptr_t o) {
 }
 
 bool Install() {
+    Block* b = static_cast<Block*>(Persist().cmdMenu);
+    if (b && b->magic == kMagic) {
+        g_block = b;
+        Log("menu P2 recuperado en %llx", (unsigned long long)Fc2());
+    }
     return Hook("HudObjRegister", 0x140166950, "48895c2408574883ec20448941144c8d", (void*)h_Register, (void**)&o_Register)
         && Hook("HudGroupShow", 0x140167470, "40534883ec208bd933c0660f1f440000", (void*)h_Show, (void**)&o_Show)
         && Hook("HudGroupHide", 0x140166bd0, "40534883ec208bd933c0660f1f440000", (void*)h_Hide, (void**)&o_Hide)
