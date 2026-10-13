@@ -206,6 +206,11 @@ F1 modos de composición, F9 flush DMA manual, F10 activar/desactivar fix de ín
 - Si P2 está unido sin Goofy ni Sora P2 (y nada lo absorbe), el Sora P2 aparece junto a P1 al asentarse la zona.
 - El indicador de P2 se oculta (flag Obj2D 2) cuando no hay Sora P2.
 
+- PENDIENTE: al continuar tras morir, P2 conserva su forma (el juego restaura su punto de control de la partida,
+  no los datos propios de P2). Buscar el guardado/restauración del punto de control y hacer lo mismo con P2.
+- Las teclas del mod solo cuentan con la ventana del juego activa (antes, escribir en otra ventana activaba el
+  control de Goofy por teclado de la build debug y su ataque directo -> cierre en 0x1401b0420).
+
 ## Pendiente
 - [ ] Confirmar en vivo g_Player / g_Sora y la party (Donald/Goofy) en memoria
 - [ ] Qué backend usa el juego (DX11 o DX12) en tu PC

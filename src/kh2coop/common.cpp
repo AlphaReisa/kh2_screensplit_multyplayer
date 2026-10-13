@@ -41,7 +41,14 @@ bool Hook(const char* name, uintptr_t va, const char* sigHex, void* detour, void
 // ---------------------------------------------------------------- keys
 static bool g_prevDown[256];
 
-bool KeyDown(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
+// Keys count only while the game window has the focus (typing in another window must not reach the mod).
+static bool GameHasFocus() {
+    DWORD pid = 0;
+    GetWindowThreadProcessId(GetForegroundWindow(), &pid);
+    return pid == GetCurrentProcessId();
+}
+
+bool KeyDown(int vk) { return GameHasFocus() && (GetAsyncKeyState(vk) & 0x8000) != 0; }
 
 bool KeyPressed(int vk) {
     bool down = KeyDown(vk);
