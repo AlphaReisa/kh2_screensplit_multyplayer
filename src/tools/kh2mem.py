@@ -49,6 +49,13 @@ class Proc:
             return None
         return buf.raw[: got.value]
 
+    def write(self, addr, data):
+        """Write bytes into the game (opens a write handle on first use)."""
+        if not getattr(self, "hw", None):
+            self.hw = k32.OpenProcess(0x0008 | 0x0020 | 0x0010, False, self.pid)   # VM_OPERATION | VM_WRITE | VM_READ
+        got = ctypes.c_size_t()
+        return bool(k32.WriteProcessMemory(self.hw, ctypes.c_void_p(addr), data, len(data), ctypes.byref(got)))
+
     def g(self, ghidra_addr):
         """Convert Ghidra address (0x14xxxxxxx) to live address."""
         return self.base + (ghidra_addr - IMAGE)

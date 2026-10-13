@@ -53,6 +53,8 @@ void Refresh();                     // re-validate / re-scan Goofy
 // ---------------------------------------------------------------- HUD (hud.cpp)
 namespace hud {
 bool Install();
+void Frame();   // player 2's gauge: create with the HUD, bind to the second Sora; split placement
+void Shutdown();
 }
 
 // ---------------------------------------------------------------- diagnostics (debug.cpp, debug builds only)

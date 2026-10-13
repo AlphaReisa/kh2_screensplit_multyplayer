@@ -9,8 +9,9 @@
 //    as users 0 and 1), so XInput user numbers do not identify physical controllers.
 //
 // Design:
-//  - Player 2 joins by holding LB + RB for one second on their controller; every XInput user
-//    reporting the identical state at that moment (its virtual duplicates) belongs to player 2.
+//  - Player 2 joins by holding LB + RB for one second on their controller; every XInput user that held
+//    the gesture for most of that second (its virtual duplicates, which can lag a few frames) belongs to
+//    player 2.
 //    The controller rumbles to confirm (1 s on join, 2 s on leave). The same gesture leaves.
 //  - For the game's input layer, player 2's users report a neutral state (XInputGetState hook), so
 //    player 2 never drives player 1 and player 1 behaves exactly as in the original game.
@@ -65,11 +66,6 @@ static void Rumble(int mask, WORD strength) {
 }
 
 // ---------------------------------------------------------------- join / leave
-static bool SameState(const XGamepad& a, const XGamepad& b) {
-    return a.buttons == b.buttons && abs(a.lt - b.lt) < 40 && abs(a.rt - b.rt) < 40 && abs(a.lx - b.lx) < 2000 && abs(a.ly - b.ly) < 2000 &&
-           abs(a.rx - b.rx) < 2000 && abs(a.ry - b.ry) < 2000;
-}
-
 static int g_rumbleFrames = 0;
 static int g_rumbleUsers = 0;
 
@@ -98,7 +94,7 @@ static void UpdateJoin() {
         } else {
             g_p2Mask = 0;
             for (int v = 0; v < 4; v++)
-                if (ok[v] && SameState(st[v].pad, st[u].pad)) g_p2Mask |= 1 << v;   // u and its duplicates
+                if (holdFrames[v] >= 30) g_p2Mask |= 1 << v;     // u and its duplicates
             g_p2User = u;
             Log("jugador 2 se une: usuario XInput %d (usuarios %x)", u, g_p2Mask);
             g_rumbleFrames = 60;                                  // join: 1 s

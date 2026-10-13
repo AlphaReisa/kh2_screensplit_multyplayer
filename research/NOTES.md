@@ -143,6 +143,19 @@ F1 modos de composición, F9 flush DMA manual, F10 activar/desactivar fix de ín
   restauró la cabeza de la lista de objetos 0x142a171c8 y colgó el juego).
 - HUD: GAUGE_PLAYER +0x40 = jugador; tabla 0x140abcfe8[i] (0 jugador, 1-2 amigos) limpiada por 0x140168970(i).
 
+## HUD de P2 (v0.37)
+- HudCreate 0x14016c3a0 / HudDestroy 0x14016c2b0 sobre el gestor *0x140abcd20 (tareas +0, lista de objetos +8 con
+  siguiente handle en obj+8, asignador +0x28: vfunc +8 alloc(size,0), +0x10 free). Piezas: SpriteImage 0x140abd240,
+  GAUGE_PLAYER 0x140abd248 (ctor 0x14016b6f0, Init 0x14017f270(gauge, jugador) -> tarea 2D id 3), GAUGE_FRIEND
+  0x140abd250/258, GAUGE_ENEMY 0x140abd260. HudDestroy las destruye con vtable +0x18(obj,1).
+- Sprite (update 0x14016abf0): pantalla = layout + propio +0x1c8 + heredado +0x1c0 (reconstruido desde el padre
+  +0x1e0; intacto si no hay padre). Las máscaras del anillo (SECTOR_MASK/CIRCLE_MASK, draw 0x14017e700) se colocan
+  con el heredado +0x1c0 de su ancla -> mover el indicador con el +0x1c0 del sprite raíz (gauge+0x1d40).
+- Ancho del HUD: 512 a 4:3 -> 683 a 16:9; media pantalla = 341.
+- Unión: los duplicados de Steam se detectan por haber mantenido LB+RB >= 30 de los 60 frames.
+- PENDIENTE: cierre al lanzar Piro (P1) con Sora P2 presente: VM de scripts 0x14041e2c0 pide la posición de un
+  objeto (FUN_1402be970 -> +0x30 nulo, objeto ya destruido con 0x1402be8a0).
+
 ## Pendiente
 - [ ] Confirmar en vivo g_Player / g_Sora y la party (Donald/Goofy) en memoria
 - [ ] Qué backend usa el juego (DX11 o DX12) en tu PC

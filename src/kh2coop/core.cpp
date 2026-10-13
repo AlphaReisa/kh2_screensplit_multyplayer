@@ -7,7 +7,7 @@
 
 using namespace kc;
 
-#define KH2COOP_VERSION "0.36"
+#define KH2COOP_VERSION "0.37"
 
 using VoidFn = void (*)();
 static VoidFn o_RenderPrep;
@@ -15,8 +15,9 @@ static VoidFn o_RenderPrep;
 static void h_RenderPrep() {
     g_frame++;
     input::Frame();       // poll player 2
-    party::Frame();       // second Sora: discovery, repair, coop-mode key
+    party::Frame();       // second Sora: discovery, repair, live swap on join/leave
     friendctl::Frame();   // Goofy under player 2 (when there is no second Sora)
+    hud::Frame();         // player 2 gauge
     debugtools::Frame();
     split::Frame();       // split-screen toggle / keep-alive (must run before the engine's RenderPrep)
     o_RenderPrep();
@@ -53,6 +54,7 @@ extern "C" __declspec(dllexport) bool CoreInit(LogFn log) {
 extern "C" __declspec(dllexport) void CoreShutdown() {
     split::Shutdown();            // ends the dual-camera mode on the game thread
     input::Shutdown();
+    hud::Shutdown();
     MH_DisableHook(MH_ALL_HOOKS);
     debugtools::Shutdown();
     split::ShutdownAfterHooks();
