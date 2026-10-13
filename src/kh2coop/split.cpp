@@ -63,12 +63,16 @@ static void UnshiftProjection(int idx) {
 }
 
 // ---------------------------------------------------------------- camera 1 (player 2)
-// An independent orbit camera around player 2. From the game camera (slot 0) it only borrows the framing:
-// distance, pitch and target height above the player. Its yaw is its own, turned by player 2's right
-// stick, so moving player 1 (which turns the game camera) no longer drags camera 2 around.
+// An independent orbit camera around player 2. Yaw and elevation are its own, turned by player 2's right
+// stick, so player 1 moving the game camera no longer drags camera 2 around. It starts from the game
+// camera's framing (distance, elevation, target height) and keeps it: player 1's vertical camera input
+// changes both elevation and distance of the game camera.
 // Slot layout: +0x48 eye, +0x58 target (vec4); the commit rebuilds the view matrix from them.
 static bool  g_cam2Init = false;
 static float g_cam2Yaw = 0;            // radians, direction from target to eye in the XZ plane
+static float g_cam2Dist = 0;           // eye-target distance
+static float g_cam2Height = 0;         // target height relative to the player (engine Y down)
+static float g_cam2Elev = 0;           // radians, eye elevation above the target (positive = above)
 static float g_cam2Target[3];          // smoothed target position
 
 static void UpdateP2Camera() {
@@ -85,24 +89,42 @@ static void UpdateP2Camera() {
     // framing of the game camera
     float off[3] = {eye0[0] - tgt0[0], eye0[1] - tgt0[1], eye0[2] - tgt0[2]};
     float flat = sqrtf(off[0] * off[0] + off[2] * off[2]);
+    float dist = sqrtf(flat * flat + off[1] * off[1]);
     float height = tgt0[1] - pos1[1];   // target height relative to the player (engine Y points down)
 
-    float want[3] = {pos2[0], pos2[1] + height, pos2[2]};
     if (!g_cam2Init) {
+        g_cam2Dist = dist;
+        g_cam2Height = height;
         g_cam2Yaw = atan2f(off[0], off[2]);
-        memcpy(g_cam2Target, want, sizeof(want));
+        g_cam2Elev = atan2f(-off[1], flat);   // engine Y points down
+        g_cam2Target[0] = pos2[0];
+        g_cam2Target[1] = pos2[1] + height;
+        g_cam2Target[2] = pos2[2];
         g_cam2Init = true;
     }
+    float want[3] = {pos2[0], pos2[1] + g_cam2Height, pos2[2]};
     g_cam2Yaw += input::P2().camX * 0.045f;   // ~2.7 rad/s at full deflection
+    g_cam2Elev -= input::P2().camY * 0.02f;
+    g_cam2Elev = g_cam2Elev < -0.15f ? -0.15f : g_cam2Elev > 1.2f ? 1.2f : g_cam2Elev;
     for (int i = 0; i < 3; i++) g_cam2Target[i] += (want[i] - g_cam2Target[i]) * 0.25f;   // light smoothing
 
     memcpy(c1, c0, 0x80);   // keep the game camera's other parameters (fov, up vector, roll)
     float* eye = reinterpret_cast<float*>(c1 + 0x48);
     float* tgt = reinterpret_cast<float*>(c1 + 0x58);
     for (int i = 0; i < 3; i++) tgt[i] = g_cam2Target[i];
-    eye[0] = tgt[0] + sinf(g_cam2Yaw) * flat;
-    eye[1] = tgt[1] + off[1];
-    eye[2] = tgt[2] + cosf(g_cam2Yaw) * flat;
+    float horiz = cosf(g_cam2Elev) * g_cam2Dist;
+    eye[0] = tgt[0] + sinf(g_cam2Yaw) * horiz;
+    eye[1] = tgt[1] - sinf(g_cam2Elev) * g_cam2Dist;
+    eye[2] = tgt[2] + cosf(g_cam2Yaw) * horiz;
+}
+
+// Camera 2's view direction straight from its own state: camera slot 1 is only rebuilt during the
+// pass-1 commit, so reading it at other points of the frame can return another camera's contents.
+bool P2CameraForward(float& fx, float& fz) {
+    if (!g_running || !g_cam2Init) return false;
+    fx = -sinf(g_cam2Yaw);   // eye -> target
+    fz = -cosf(g_cam2Yaw);
+    return true;
 }
 
 // ---------------------------------------------------------------- hooks
@@ -181,6 +203,12 @@ bool Install() {
 }
 
 void Frame() {
+    static bool joined = false;   // player 2 joining / leaving turns split screen on / off
+    if (input::Joined() != joined) {
+        joined = !joined;
+        g_wanted = joined;
+        Log("split %s (jugador 2 %s)", g_wanted ? "ON" : "OFF", joined ? "unido" : "fuera");
+    }
     if (KeyPressed(g_cfg.keySplit)) {
         g_wanted = !g_wanted;
         Log("split %s", g_wanted ? "ON" : "OFF");

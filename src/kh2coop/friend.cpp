@@ -38,14 +38,18 @@ static bool IsP2Goofy(intptr_t o) { return g_controlled && o && (uintptr_t)o == 
 // Stick -> camera-relative move vector, speed scaled to the object's run speed.
 static void ApplyMove(uintptr_t o) {
     const input::P2State& p2 = input::P2();
-    const uint8_t* cam = reinterpret_cast<const uint8_t*>(VA(kh2::CamBank)) + (split::Running() ? 0x80 : 0);
-    const float* eye = reinterpret_cast<const float*>(cam + 0x48);
-    const float* tgt = reinterpret_cast<const float*>(cam + 0x58);
-    float fx = tgt[0] - eye[0], fz = tgt[2] - eye[2];
-    float fl = sqrtf(fx * fx + fz * fz);
-    if (fl < 1e-3f) { fx = 0; fz = 1; fl = 1; }
-    fx /= fl; fz /= fl;
-    float rx = -fz, rz = fx;
+    float fx, fz;
+    if (!split::P2CameraForward(fx, fz)) {   // single screen: the game camera
+        const uint8_t* cam = reinterpret_cast<const uint8_t*>(VA(kh2::CamBank));
+        const float* eye = reinterpret_cast<const float*>(cam + 0x48);
+        const float* tgt = reinterpret_cast<const float*>(cam + 0x58);
+        fx = tgt[0] - eye[0];
+        fz = tgt[2] - eye[2];
+        float fl = sqrtf(fx * fx + fz * fz);
+        if (fl < 1e-3f) { fx = 0; fz = 1; fl = 1; }
+        fx /= fl; fz /= fl;
+    }
+    float rx = fz, rz = -fx;   // screen right: forward x up, with the engine's Y pointing down
     float mag = sqrtf(p2.stickX * p2.stickX + p2.stickY * p2.stickY);
     float* mv = reinterpret_cast<float*>(o + kh2::obj::MoveVec);
     mv[0] = fx * p2.stickY + rx * p2.stickX;
@@ -107,13 +111,14 @@ void Frame() {
         g_pending = 0;
         return;
     }
-    if ((p2.stickActive || (p2.pressed & 0x3000)) && !g_controlled) {
-        g_controlled = true;
-        Log("P2 toma el control de Goofy");
-    }
-    if ((p2.pressed & 0x0020) && g_controlled) {
-        g_controlled = false;
-        Log("P2 devuelve Goofy a la IA");
+    bool want = input::Joined();   // player 2 joined (LB + RB) -> Goofy is theirs
+#ifdef KH2COOP_DEBUG
+    want = want || p2.stickActive || g_controlled;   // keyboard stand-ins take Goofy too
+#endif
+    if (want != g_controlled) {
+        g_controlled = want;
+        g_pending = 0;
+        Log(want ? "P2 toma el control de Goofy" : "P2 devuelve Goofy a la IA");
     }
     if (g_controlled) g_pending |= p2.pressed;
     if (g_controlled || split::Running() || split::Wanted()) Refresh();

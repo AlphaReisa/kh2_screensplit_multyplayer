@@ -1,0 +1,4 @@
+reposo   xinput [] | puertos [] | pads motor [] | pad activo [1]
+MANDO A  xinput [0] | puertos ['0(xi0)', '1(xi1)'] | pads motor [0, 1] | pad activo [1]
+reposo   xinput [] | puertos [] | pads motor [] | pad activo [1]
+MANDO B  xinput [1] | puertos ['0(xi2)'] | pads motor [0] | pad activo [1]

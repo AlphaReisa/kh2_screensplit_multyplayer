@@ -1,0 +1,234 @@
+dispositivo 0xe16cefd4b0
+  0.00 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+  0.00 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 2
+  0.00   motor pad0: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+  0.00   motor pad1: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 2
+  9.00 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+  9.00 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 1
+  9.82 puerto 0: botones 0000  bytes2-9 14 ff 80 80 1c 48 fa 7f  conectado 1
+  9.82 puerto 1: botones 0000  bytes2-9 14 ff 80 80 00 00 00 00  conectado 1
+  9.82   motor pad0: bits 0000000040180000  stick 0.00 0.00 mag 0.00  flags 0
+  9.82   motor pad1: bits 0000000040180000  stick 0.00 0.00 mag 0.00  flags 0
+  9.84 puerto 0: botones 0000  bytes2-9 00 ff 80 80 1c 48 fa 7f  conectado 1
+  9.84 puerto 1: botones 0000  bytes2-9 00 ff 80 80 00 00 00 00  conectado 1
+  9.92 puerto 0: botones 0000  bytes2-9 33 ff 80 80 1c 48 fa 7f  conectado 1
+  9.92 puerto 1: botones 0000  bytes2-9 33 ff 80 80 00 00 00 00  conectado 1
+  9.94 puerto 0: botones 0000  bytes2-9 23 ff 80 80 1c 48 fa 7f  conectado 1
+  9.94 puerto 1: botones 0000  bytes2-9 23 ff 80 80 00 00 00 00  conectado 1
+  9.96 puerto 0: botones 0000  bytes2-9 70 ff 80 80 1c 48 fa 7f  conectado 1
+  9.96 puerto 1: botones 0000  bytes2-9 70 ff 80 80 00 00 00 00  conectado 1
+  9.98 puerto 0: botones 0000  bytes2-9 9e ff 80 80 1c 48 fa 7f  conectado 1
+  9.98 puerto 1: botones 0000  bytes2-9 9e ff 80 80 00 00 00 00  conectado 1
+  9.98   motor pad0: bits 0000000040280000  stick 0.00 0.00 mag 0.00  flags 0
+  9.98   motor pad1: bits 0000000040280000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.00 puerto 0: botones 0000  bytes2-9 cc ff 80 80 1c 48 fa 7f  conectado 1
+ 10.00 puerto 1: botones 0000  bytes2-9 cc ff 80 80 00 00 00 00  conectado 1
+ 10.02 puerto 0: botones 0000  bytes2-9 ea ff 80 80 1c 48 fa 7f  conectado 1
+ 10.02 puerto 1: botones 0000  bytes2-9 ea ff 80 80 00 00 00 00  conectado 1
+ 10.04 puerto 0: botones 0000  bytes2-9 ad bf 80 80 1c 48 fa 7f  conectado 1
+ 10.04 puerto 1: botones 0000  bytes2-9 ad bf 80 80 00 00 00 00  conectado 1
+ 10.06 puerto 0: botones 0000  bytes2-9 9e 7f 80 80 1c 48 fa 7f  conectado 1
+ 10.06 puerto 1: botones 0000  bytes2-9 9e 7f 80 80 00 00 00 00  conectado 1
+ 10.06   motor pad0: bits 0000000000200000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.06   motor pad1: bits 0000000000200000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.08 puerto 0: botones 0000  bytes2-9 cc 7f 80 80 1c 48 fa 7f  conectado 1
+ 10.08 puerto 1: botones 0000  bytes2-9 cc 7f 80 80 00 00 00 00  conectado 1
+ 10.10 puerto 0: botones 0000  bytes2-9 bc 8c 80 80 1c 48 fa 7f  conectado 1
+ 10.10 puerto 1: botones 0000  bytes2-9 bc 8c 80 80 00 00 00 00  conectado 1
+ 10.10   motor pad0: bits 0000000040280000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.10   motor pad1: bits 0000000040280000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.12 puerto 0: botones 0000  bytes2-9 bc 7f 80 80 1c 48 fa 7f  conectado 1
+ 10.12 puerto 1: botones 0000  bytes2-9 bc 7f 80 80 00 00 00 00  conectado 1
+ 10.12   motor pad0: bits 0000000000200000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.12   motor pad1: bits 0000000000200000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.14 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+ 10.14 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 1
+ 10.14   motor pad0: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.14   motor pad1: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.19 puerto 0: botones 0000  bytes2-9 ff 00 80 80 1c 48 fa 7f  conectado 1
+ 10.19 puerto 1: botones 0000  bytes2-9 ff 00 80 80 00 00 00 00  conectado 1
+ 10.19   motor pad0: bits 0000000020240000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.19   motor pad1: bits 0000000020240000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.23 puerto 0: botones 0000  bytes2-9 db 19 80 80 1c 48 fa 7f  conectado 1
+ 10.23 puerto 1: botones 0000  bytes2-9 db 19 80 80 00 00 00 00  conectado 1
+ 10.25 puerto 0: botones 0000  bytes2-9 bc 66 80 80 1c 48 fa 7f  conectado 1
+ 10.25 puerto 1: botones 0000  bytes2-9 bc 66 80 80 00 00 00 00  conectado 1
+ 10.27 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+ 10.27 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 1
+ 10.27   motor pad0: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.27   motor pad1: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.35 puerto 0: botones 0000  bytes2-9 70 7f 80 80 1c 48 fa 7f  conectado 1
+ 10.35 puerto 1: botones 0000  bytes2-9 70 7f 80 80 00 00 00 00  conectado 1
+ 10.35   motor pad0: bits 0000000000100000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.35   motor pad1: bits 0000000000100000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.37 puerto 0: botones 0000  bytes2-9 60 7f 80 80 1c 48 fa 7f  conectado 1
+ 10.37 puerto 1: botones 0000  bytes2-9 60 7f 80 80 00 00 00 00  conectado 1
+ 10.39 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+ 10.39 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 1
+ 10.39   motor pad0: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.39   motor pad1: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.41 puerto 0: botones 0000  bytes2-9 70 7f 80 80 1c 48 fa 7f  conectado 1
+ 10.41 puerto 1: botones 0000  bytes2-9 70 7f 80 80 00 00 00 00  conectado 1
+ 10.41   motor pad0: bits 0000000000100000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.41   motor pad1: bits 0000000000100000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.45 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+ 10.45 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 1
+ 10.45   motor pad0: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.45   motor pad1: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.65 puerto 0: botones 0000  bytes2-9 70 7f 80 80 1c 48 fa 7f  conectado 1
+ 10.65 puerto 1: botones 0000  bytes2-9 70 7f 80 80 00 00 00 00  conectado 1
+ 10.65   motor pad0: bits 0000000000100000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.65   motor pad1: bits 0000000000100000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.72 puerto 0: botones 0000  bytes2-9 60 8c 80 80 1c 48 fa 7f  conectado 1
+ 10.72 puerto 1: botones 0000  bytes2-9 60 8c 80 80 00 00 00 00  conectado 1
+ 10.72   motor pad0: bits 0000000040180000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.72   motor pad1: bits 0000000040180000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.74 puerto 0: botones 0000  bytes2-9 70 7f 80 80 1c 48 fa 7f  conectado 1
+ 10.74 puerto 1: botones 0000  bytes2-9 70 7f 80 80 00 00 00 00  conectado 1
+ 10.74   motor pad0: bits 0000000000100000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.74   motor pad1: bits 0000000000100000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.76 puerto 0: botones 0000  bytes2-9 60 8c 80 80 1c 48 fa 7f  conectado 1
+ 10.76 puerto 1: botones 0000  bytes2-9 60 8c 80 80 00 00 00 00  conectado 1
+ 10.76   motor pad0: bits 0000000040180000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.76   motor pad1: bits 0000000040180000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.78 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+ 10.78 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 1
+ 10.78   motor pad0: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.78   motor pad1: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.80 puerto 0: botones 0000  bytes2-9 70 7f 80 80 1c 48 fa 7f  conectado 1
+ 10.80 puerto 1: botones 0000  bytes2-9 70 7f 80 80 00 00 00 00  conectado 1
+ 10.80   motor pad0: bits 0000000000100000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.80   motor pad1: bits 0000000000100000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.82 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+ 10.82 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 1
+ 10.82   motor pad0: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.82   motor pad1: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.84 puerto 0: botones 0000  bytes2-9 70 8c 80 80 1c 48 fa 7f  conectado 1
+ 10.84 puerto 1: botones 0000  bytes2-9 70 8c 80 80 00 00 00 00  conectado 1
+ 10.84   motor pad0: bits 0000000040180000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.84   motor pad1: bits 0000000040180000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.86 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+ 10.86 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 1
+ 10.86   motor pad0: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 10.86   motor pad1: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 18.43 puerto 0: botones 0000  bytes2-9 7f 72 80 80 1c 48 fa 7f  conectado 1
+ 18.43 puerto 1: botones 0000  bytes2-9 7f 72 80 80 00 00 00 00  conectado 1
+ 18.43   motor pad0: bits 0000000020040000  stick 0.00 0.00 mag 0.00  flags 0
+ 18.43   motor pad1: bits 0000000020040000  stick 0.00 0.00 mag 0.00  flags 0
+ 18.45 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+ 18.45 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 1
+ 18.45   motor pad0: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 18.45   motor pad1: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 18.61 puerto 0: botones 0000  bytes2-9 ff 00 80 80 1c 48 fa 7f  conectado 1
+ 18.61 puerto 1: botones 0000  bytes2-9 ff 00 80 80 00 00 00 00  conectado 1
+ 18.61   motor pad0: bits 0000000020240000  stick 0.00 0.00 mag 0.00  flags 0
+ 18.61   motor pad1: bits 0000000020240000  stick 0.00 0.00 mag 0.00  flags 0
+ 18.68 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+ 18.68 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 1
+ 18.68   motor pad0: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 18.68   motor pad1: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 20.41 puerto 0: botones 0000  bytes2-9 54 80 80 80 1c 48 fa 7f  conectado 1
+ 20.41 puerto 1: botones 0000  bytes2-9 54 80 80 80 00 00 00 00  conectado 1
+ 20.43 puerto 0: botones 0000  bytes2-9 09 57 80 80 1c 48 fa 7f  conectado 1
+ 20.43 puerto 1: botones 0000  bytes2-9 09 57 80 80 00 00 00 00  conectado 1
+ 20.43   motor pad0: bits 0000000000100000  stick 0.00 0.00 mag 0.00  flags 0
+ 20.43   motor pad1: bits 0000000000100000  stick 0.00 0.00 mag 0.00  flags 0
+ 20.45 puerto 0: botones 0000  bytes2-9 00 4f 80 80 1c 48 fa 7f  conectado 1
+ 20.45 puerto 1: botones 0000  bytes2-9 00 4f 80 80 00 00 00 00  conectado 1
+ 20.47 puerto 0: botones 0000  bytes2-9 00 49 80 80 1c 48 fa 7f  conectado 1
+ 20.47 puerto 1: botones 0000  bytes2-9 00 49 80 80 00 00 00 00  conectado 1
+ 20.49 puerto 0: botones 0000  bytes2-9 00 41 80 80 1c 48 fa 7f  conectado 1
+ 20.49 puerto 1: botones 0000  bytes2-9 00 40 80 80 00 00 00 00  conectado 1
+ 20.49   motor pad0: bits 0000000020140000  stick 0.00 0.00 mag 0.00  flags 0
+ 20.49   motor pad1: bits 0000000020140000  stick 0.00 0.00 mag 0.00  flags 0
+ 20.51 puerto 0: botones 0000  bytes2-9 00 40 80 80 1c 48 fa 7f  conectado 1
+ 20.53 puerto 0: botones 0000  bytes2-9 00 3f 80 80 1c 48 fa 7f  conectado 1
+ 20.53 puerto 1: botones 0000  bytes2-9 00 3f 80 80 00 00 00 00  conectado 1
+ 20.55 puerto 0: botones 0000  bytes2-9 00 3d 80 80 1c 48 fa 7f  conectado 1
+ 20.55 puerto 1: botones 0000  bytes2-9 00 3d 80 80 00 00 00 00  conectado 1
+ 20.57 puerto 0: botones 0000  bytes2-9 25 3a 80 80 1c 48 fa 7f  conectado 1
+ 20.57 puerto 1: botones 0000  bytes2-9 25 3a 80 80 00 00 00 00  conectado 1
+ 20.59 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+ 20.59 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 1
+ 20.59   motor pad0: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 20.59   motor pad1: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 24.39 puerto 0: botones 0000  bytes2-9 80 80 80 31 1c 48 fa 7f  conectado 1
+ 24.39 puerto 1: botones 0000  bytes2-9 80 80 80 31 00 00 00 00  conectado 1
+ 24.39   motor pad0: bits 0000000000000010  stick 0.00 -1.00 mag 0.27  flags 0
+ 24.39   motor pad1: bits 0000000000000010  stick 0.00 -1.00 mag 0.27  flags 0
+ 24.41 puerto 0: botones 0000  bytes2-9 80 80 80 11 1c 48 fa 7f  conectado 1
+ 24.41 puerto 1: botones 0000  bytes2-9 80 80 80 11 00 00 00 00  conectado 1
+ 24.41   motor pad0: bits 0000000000000010  stick 0.00 -1.00 mag 0.75  flags 0
+ 24.41   motor pad1: bits 0000000000000010  stick 0.00 -1.00 mag 0.75  flags 0
+ 24.43 puerto 0: botones 0000  bytes2-9 80 80 80 00 1c 48 fa 7f  conectado 1
+ 24.43 puerto 1: botones 0000  bytes2-9 80 80 80 00 00 00 00 00  conectado 1
+ 24.43   motor pad0: bits 0000000000000010  stick 0.00 -1.00 mag 1.00  flags 0
+ 24.43   motor pad1: bits 0000000000000010  stick 0.00 -1.00 mag 1.00  flags 0
+ 24.58 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+ 24.58 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 1
+ 24.58   motor pad0: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 24.58   motor pad1: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 27.84 puerto 0: botones 0000  bytes2-9 00 ff 80 80 1c 48 fa 7f  conectado 1
+ 27.84 puerto 1: botones 0000  bytes2-9 00 ff 80 80 00 00 00 00  conectado 1
+ 27.84   motor pad0: bits 0000000040180000  stick 0.00 0.00 mag 0.00  flags 0
+ 27.84   motor pad1: bits 0000000040180000  stick 0.00 0.00 mag 0.00  flags 0
+ 27.94 puerto 0: botones 0000  bytes2-9 00 f2 80 80 1c 48 fa 7f  conectado 1
+ 27.94 puerto 1: botones 0000  bytes2-9 00 f2 80 80 00 00 00 00  conectado 1
+ 27.96 puerto 0: botones 0000  bytes2-9 00 ff 80 80 1c 48 fa 7f  conectado 1
+ 27.96 puerto 1: botones 0000  bytes2-9 00 ff 80 80 00 00 00 00  conectado 1
+ 28.02 puerto 0: botones 0000  bytes2-9 00 d8 80 80 1c 48 fa 7f  conectado 1
+ 28.02 puerto 1: botones 0000  bytes2-9 00 d8 80 80 00 00 00 00  conectado 1
+ 28.04 puerto 0: botones 0000  bytes2-9 00 f2 80 80 1c 48 fa 7f  conectado 1
+ 28.04 puerto 1: botones 0000  bytes2-9 00 f2 80 80 00 00 00 00  conectado 1
+ 28.06 puerto 0: botones 0000  bytes2-9 00 ff 80 80 1c 48 fa 7f  conectado 1
+ 28.06 puerto 1: botones 0000  bytes2-9 00 ff 80 80 00 00 00 00  conectado 1
+ 28.10 puerto 0: botones 0000  bytes2-9 00 99 80 80 1c 48 fa 7f  conectado 1
+ 28.10 puerto 1: botones 0000  bytes2-9 00 99 80 80 00 00 00 00  conectado 1
+ 28.12 puerto 0: botones 0000  bytes2-9 7f 72 80 80 1c 48 fa 7f  conectado 1
+ 28.12 puerto 1: botones 0000  bytes2-9 7f 72 80 80 00 00 00 00  conectado 1
+ 28.12   motor pad0: bits 0000000020040000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.12   motor pad1: bits 0000000020040000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.14 puerto 0: botones 0000  bytes2-9 f9 00 80 80 1c 48 fa 7f  conectado 1
+ 28.14 puerto 1: botones 0000  bytes2-9 f9 00 80 80 00 00 00 00  conectado 1
+ 28.14   motor pad0: bits 0000000020240000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.14   motor pad1: bits 0000000020240000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.16 puerto 0: botones 0000  bytes2-9 ff 00 80 80 1c 48 fa 7f  conectado 1
+ 28.16 puerto 1: botones 0000  bytes2-9 ff 00 80 80 00 00 00 00  conectado 1
+ 28.27 puerto 0: botones 0000  bytes2-9 ff 72 80 80 1c 48 fa 7f  conectado 1
+ 28.27 puerto 1: botones 0000  bytes2-9 ff 72 80 80 00 00 00 00  conectado 1
+ 28.29 puerto 0: botones 0000  bytes2-9 ff 8c 80 80 1c 48 fa 7f  conectado 1
+ 28.29 puerto 1: botones 0000  bytes2-9 ff 8c 80 80 00 00 00 00  conectado 1
+ 28.29   motor pad0: bits 0000000040280000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.29   motor pad1: bits 0000000040280000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.33 puerto 0: botones 0000  bytes2-9 db 7f 80 80 1c 48 fa 7f  conectado 1
+ 28.33 puerto 1: botones 0000  bytes2-9 db 7f 80 80 00 00 00 00  conectado 1
+ 28.33   motor pad0: bits 0000000000200000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.33   motor pad1: bits 0000000000200000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.35 puerto 0: botones 0000  bytes2-9 cc 7f 80 80 1c 48 fa 7f  conectado 1
+ 28.35 puerto 1: botones 0000  bytes2-9 cc 7f 80 80 00 00 00 00  conectado 1
+ 28.39 puerto 0: botones 0000  bytes2-9 bc 7f 80 80 1c 48 fa 7f  conectado 1
+ 28.39 puerto 1: botones 0000  bytes2-9 bc 7f 80 80 00 00 00 00  conectado 1
+ 28.43 puerto 0: botones 0000  bytes2-9 7f 72 80 80 1c 48 fa 7f  conectado 1
+ 28.43 puerto 1: botones 0000  bytes2-9 7f 72 80 80 00 00 00 00  conectado 1
+ 28.43   motor pad0: bits 0000000020040000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.43   motor pad1: bits 0000000020040000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.45 puerto 0: botones 0000  bytes2-9 8e 7f 80 80 1c 48 fa 7f  conectado 1
+ 28.45 puerto 1: botones 0000  bytes2-9 8e 7f 80 80 00 00 00 00  conectado 1
+ 28.45   motor pad0: bits 0000000000200000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.45   motor pad1: bits 0000000000200000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.47 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+ 28.47 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 1
+ 28.47   motor pad0: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.47   motor pad1: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.76 puerto 0: botones 0000  bytes2-9 70 7f 80 80 1c 48 fa 7f  conectado 1
+ 28.76 puerto 1: botones 0000  bytes2-9 70 7f 80 80 00 00 00 00  conectado 1
+ 28.76   motor pad0: bits 0000000000100000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.76   motor pad1: bits 0000000000100000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.78 puerto 0: botones 0000  bytes2-9 33 7f 80 80 1c 48 fa 7f  conectado 1
+ 28.78 puerto 1: botones 0000  bytes2-9 33 7f 80 80 00 00 00 00  conectado 1
+ 28.82 puerto 0: botones 0000  bytes2-9 42 7f 80 80 1c 48 fa 7f  conectado 1
+ 28.82 puerto 1: botones 0000  bytes2-9 42 7f 80 80 00 00 00 00  conectado 1
+ 28.84 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+ 28.84 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 2
+ 28.84   motor pad0: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+ 28.84   motor pad1: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 2

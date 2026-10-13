@@ -7,7 +7,7 @@
 
 using namespace kc;
 
-#define KH2COOP_VERSION "0.32"
+#define KH2COOP_VERSION "0.35"
 
 using VoidFn = void (*)();
 static VoidFn o_RenderPrep;
@@ -52,6 +52,7 @@ extern "C" __declspec(dllexport) bool CoreInit(LogFn log) {
 
 extern "C" __declspec(dllexport) void CoreShutdown() {
     split::Shutdown();            // ends the dual-camera mode on the game thread
+    input::Shutdown();
     MH_DisableHook(MH_ALL_HOOKS);
     debugtools::Shutdown();
     split::ShutdownAfterHooks();

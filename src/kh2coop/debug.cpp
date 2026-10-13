@@ -1,6 +1,7 @@
 // Diagnostics, compiled only in debug builds (build.bat debug -> /DKH2COOP_DEBUG).
 //   F3  hardware watchpoints on camera slot 0 (view row 0, translation, eye, +0x68) for ~6 frames
 //   F2  hardware watchpoints on the HUD gauge's player pointer
+//   F9  hardware watchpoints listed in kh2coop_watch.txt (written by src/tools/watch.py)
 //   F11 hardware watchpoints on writes to Goofy's move vector (1.5 s)
 //   F5  trace every MapDraw call for one frame (pass index, caller, VP translation)
 //   F4  cycle -1/0/1: feed MapDraw a broken view matrix in that pass
@@ -8,6 +9,8 @@
 #include "modules.h"
 #include "game.h"
 #include <intrin.h>
+#include <cstdio>
+#include <cstdlib>
 
 using namespace kc;
 
@@ -102,6 +105,34 @@ static void StartWatch(const char* what, std::initializer_list<Watch> w, int ms)
     CloseHandle(CreateThread(nullptr, 0, WatchThread, nullptr, 0, nullptr));
 }
 
+// Generic watch: kh2coop_watch.txt next to the game exe, up to 4 lines "<live addr hex> <r|w> <len> [ms]"
+// (written by src/tools/watch.py).
+static void WatchFromFile() {
+    char path[MAX_PATH];
+    GetModuleFileNameA(nullptr, path, MAX_PATH);
+    if (char* slash = strrchr(path, '\\')) strcpy_s(slash + 1, MAX_PATH - (slash + 1 - path), "kh2coop_watch.txt");
+    FILE* f = nullptr;
+    if (fopen_s(&f, path, "r") || !f) { Log("watch: no existe %s", path); return; }
+    Watch w[4] = {};
+    int n = 0, ms = 300;
+    char line[128];
+    while (n < 4 && fgets(line, sizeof(line), f)) {
+        unsigned long long a; char rw; int len, t = 0;
+        int got = sscanf_s(line, "%llx %c %d %d", &a, &rw, 1, &len, &t);
+        if (got < 3) continue;
+        w[n++] = {(uintptr_t)a, rw == 'w' ? 1 : 3, len};
+        if (got == 4 && t > 0) ms = t;
+    }
+    fclose(f);
+    if (InterlockedCompareExchange(&g_armed, 1, 0) != 0) return;
+    g_watchCount = n;
+    memcpy(g_watch, w, sizeof(w));
+    g_watchMs = ms;
+    if (!g_veh) g_veh = AddVectoredExceptionHandler(1, WatchHandler);
+    Log("watchpoints desde archivo: %d direcciones, %d ms", n, ms);
+    CloseHandle(CreateThread(nullptr, 0, WatchThread, nullptr, 0, nullptr));
+}
+
 // ---------------------------------------------------------------- MapDraw trace / break
 using MapDrawFn = intptr_t (*)(intptr_t part, uint64_t a2, uint64_t a3, uint32_t* a4, uint32_t a5);
 static MapDrawFn o_MapDraw;
@@ -130,8 +161,31 @@ bool Install() {
     return Hook("MapDraw", 0x1401a5180, "40555356574154415541564157488dac", (void*)h_MapDraw, (void**)&o_MapDraw);
 }
 
+// In-process XInput view (Steam Input may add virtual devices that external tools don't see):
+// logs which XInput users have a deflected left stick, whenever that set changes.
+static void LogXInputUsers() {
+    using GetStateFn = DWORD(WINAPI*)(DWORD, void*);
+    static GetStateFn get = nullptr;
+    if (!get) { HMODULE m = LoadLibraryA("xinput1_4.dll"); get = m ? (GetStateFn)GetProcAddress(m, "XInputGetState") : nullptr; }
+    if (!get) return;
+    struct XS { DWORD pk; WORD b; BYTE lt, rt; SHORT lx, ly, rx, ry; };
+    static int lastMask = -1, lastConn = -1;
+    int mask = 0, conn = 0;
+    for (DWORD u = 0; u < 4; u++) {
+        XS st{};
+        if (get(u, &st) != 0) continue;
+        conn |= 1 << u;
+        if (abs(st.lx) > 12000 || abs(st.ly) > 12000 || st.b) mask |= 1 << u;
+    }
+    if (mask != lastMask || conn != lastConn) {
+        Log("xinput en el juego: conectados %x, con entrada %x", conn, mask);
+        lastMask = mask; lastConn = conn;
+    }
+}
+
 void Frame() {
     g_gameThread = GetCurrentThreadId();
+    LogXInputUsers();
     if (g_traceFrames > 0) g_traceFrames--;
     if (KeyPressed(VK_F5)) { g_traceFrames = 2; Log("traza MapDraw de un frame"); }
     if (KeyPressed(VK_F4)) { g_breakIdx = g_breakIdx == 1 ? -1 : g_breakIdx + 1; Log("romper MapDraw en pase %d", g_breakIdx); }
@@ -143,6 +197,7 @@ void Frame() {
         uintptr_t g = VA(0x142578b20);
         StartWatch("gauge del HUD", {{g + 0x40, 3, 8}, {g + 0x28, 3, 8}}, 100);
     }
+    if (KeyPressed(VK_F9)) WatchFromFile();
     if (KeyPressed(VK_F11)) {
         friendctl::Refresh();
         if (uintptr_t g = friendctl::Goofy())

@@ -11,6 +11,7 @@ void Shutdown();       // back to single camera (called from the loader thread, 
 void ShutdownAfterHooks();  // restore projection matrices once hooks are disabled
 bool Running();        // dual-camera render mode active
 bool Wanted();
+bool P2CameraForward(float& fx, float& fz);   // camera 2 view direction in XZ (unit); false if not set up
 }
 
 // ---------------------------------------------------------------- player-2 input (input.cpp)
@@ -18,6 +19,7 @@ namespace input {
 struct P2State {
     float stickX = 0, stickY = 0;   // -1..1, y = forward
     float camX = 0;                 // right stick / camera keys, -1..1 (positive = orbit right)
+    float camY = 0;                 // right stick vertical, -1..1 (positive = up)
     bool  stickActive = false;
     WORD  buttons = 0;              // XInput layout: A 0x1000, B 0x2000, X 0x4000, Y 0x8000, Back 0x20
     WORD  pressed = 0;              // pressed on the last poll
@@ -26,8 +28,10 @@ struct P2State {
 bool Install();
 void Frame();                       // poll XInput user 1 + keyboard stand-ins
 const P2State& P2();
+bool Joined();             // a controller has joined as player 2
 WORD TakePressed();                 // returns and clears pressedAccum
 void SwapPads();                    // exchange engine pad 0 and pad 1 (used around the P2 Sora update)
+void Shutdown();
 }
 
 // ---------------------------------------------------------------- second Sora (party.cpp)

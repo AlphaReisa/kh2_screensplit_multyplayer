@@ -1,0 +1,5 @@
+dispositivo 0xe16cefd4b0
+  0.00 puerto 0: botones 0000  bytes2-9 80 80 80 80 1c 48 fa 7f  conectado 1
+  0.00 puerto 1: botones 0000  bytes2-9 80 80 80 80 00 00 00 00  conectado 2
+  0.00   motor pad0: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 0
+  0.00   motor pad1: bits 0000000000000000  stick 0.00 0.00 mag 0.00  flags 2
