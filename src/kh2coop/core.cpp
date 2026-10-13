@@ -7,7 +7,7 @@
 
 using namespace kc;
 
-#define KH2COOP_VERSION "0.37"
+#define KH2COOP_VERSION "0.38"
 
 using VoidFn = void (*)();
 static VoidFn o_RenderPrep;
@@ -41,6 +41,7 @@ extern "C" __declspec(dllexport) bool CoreInit(LogFn log) {
            && party::Install()
            && friendctl::Install()
            && hud::Install()
+           && cmdmenu::Install()
            && debugtools::Install();
     if (!ok || MH_EnableHook(MH_ALL_HOOKS) != MH_OK) {
         Log("no se activan los hooks (version del juego distinta o fallo de MinHook)");

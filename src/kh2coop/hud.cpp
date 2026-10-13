@@ -84,9 +84,32 @@ static void h_HudDestroy() {
 
 static void h_Hud2DTask(intptr_t task) {
     uintptr_t o = Field<uintptr_t>(task, 0x20);
+#ifdef KH2COOP_DEBUG
+    uintptr_t vt = o ? Field<uintptr_t>(o, 0) : 1;
+    if (o && (vt < g_base || vt >= g_base + 0x2c00000)) {   // diagnosing: a HUD task whose object was wiped
+        static uintptr_t seen[32];
+        static int n;
+        bool known = false;
+        for (int i = 0; i < n; i++) known |= seen[i] == o;
+        if (!known && n < 32) {
+            seen[n++] = o;
+            Log("HUD: tarea %llx con objeto borrado %llx vt %llx pool %d (grupo %d, flags %x) | amigo1 %llx amigo2 %llx jugador %llx",
+                (unsigned long long)task, (unsigned long long)o, (unsigned long long)vt, cmdmenu::PoolOf(o), Field<int32_t>(o, 0x14), Field<uint32_t>(o, 0x10),
+                Rel(Global<uintptr_t>(0x140abd250)), Rel(Global<uintptr_t>(0x140abd258)), Rel(Global<uintptr_t>(kPlayerGauge)));
+            for (int i = 0; i < 3; i++) Log("  tabla HUD[%d] = %llx", i, Rel(Global<uintptr_t>(0x140abcfe8 + i * 8)));
+        }
+        return;
+    }
+#endif
     uintptr_t p1 = kh2::Player(), p2 = party::P2Sora();
     if (o && o == Global<uintptr_t>(kPlayerGauge) && p1 && p2 && Field<uintptr_t>(o, 0x40) == p2)
         Field<uintptr_t>(o, 0x40) = p1;
+    if (cmdmenu::OwnsHudObject(o)) {   // P2's command menu pieces run in P2's HUD context
+        cmdmenu::Enter();
+        o_Hud2DTask(task);
+        cmdmenu::Leave();
+        return;
+    }
     o_Hud2DTask(task);
 }
 

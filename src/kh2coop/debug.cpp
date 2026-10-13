@@ -157,8 +157,108 @@ static intptr_t h_MapDraw(intptr_t part, uint64_t a2, uint64_t a3, uint32_t* a4,
     return o_MapDraw(part, a2, a3, a4, a5);
 }
 
+// ---------------------------------------------------------------- first-chance crash log
+// The game's own crash handler can overflow its stack and lose the original fault: log it first.
+static PVOID g_crashVeh;
+static LONG CALLBACK CrashLogger(EXCEPTION_POINTERS* e) {
+    DWORD code = e->ExceptionRecord->ExceptionCode;
+    if (code != EXCEPTION_ACCESS_VIOLATION && code != EXCEPTION_STACK_OVERFLOW) return EXCEPTION_CONTINUE_SEARCH;
+    static volatile LONG count = 0;
+    if (InterlockedIncrement(&count) > 4) return EXCEPTION_CONTINUE_SEARCH;
+    CONTEXT* c = e->ContextRecord;
+    Log("FALLO %08lx en %llx (rip %llx) acceso %llx %llx", code, Rel(c->Rip), (unsigned long long)c->Rip,
+        (unsigned long long)e->ExceptionRecord->ExceptionInformation[0], (unsigned long long)e->ExceptionRecord->ExceptionInformation[1]);
+    Log("  rax %llx rbx %llx rcx %llx rdx %llx rsi %llx rdi %llx r8 %llx", c->Rax, c->Rbx, c->Rcx, c->Rdx, c->Rsi, c->Rdi, c->R8);
+    // return addresses into the game / the core on the stack
+    const uintptr_t* sp = reinterpret_cast<const uintptr_t*>(c->Rsp);
+    int shown = 0;
+    for (int i = 0; i < 256 && shown < 20; i++) {
+        MEMORY_BASIC_INFORMATION mbi;
+        if (!VirtualQuery(sp + i, &mbi, sizeof(mbi)) || mbi.State != MEM_COMMIT) break;
+        uintptr_t v = sp[i];
+        if (v >= g_base && v < g_base + 0x700000) { Log("  pila+%x: %llx", i * 8, Rel(v)); shown++; }
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+// ---------------------------------------------------------------- dead effect tracking
+// Crash under investigation: a script asks for the position of an effect instance (EffectPos 0x1402be970 ->
+// instance+0x30 node) that was already killed (EffectKill 0x1402be8a0 clears +0x30). Every kill is recorded
+// with its call stack; a position request on a killed instance logs who killed it and gets a zero vector.
+struct Kill { uintptr_t inst; uintptr_t stack[5]; int frame; };
+static Kill g_kills[512];
+static volatile LONG g_killNext;
+using EffectFn = void (*)(uintptr_t inst);
+using EffectPosFn = void* (*)(uintptr_t inst);
+static EffectFn o_EffectKill;
+static EffectPosFn o_EffectPos;
+static float g_zero[4];
+
+static void h_EffectKill(uintptr_t inst) {
+    if (Field<uintptr_t>(inst, 0x30)) {
+        Kill& k = g_kills[InterlockedIncrement(&g_killNext) & 511];
+        k = {};
+        k.inst = inst;
+        k.frame = g_frame;
+        void* frames[16];
+        USHORT n = RtlCaptureStackBackTrace(1, 16, frames, nullptr);
+        for (USHORT i = 0, j = 0; i < n && j < 5; i++) {
+            uintptr_t f = (uintptr_t)frames[i];
+            if (f >= g_base && f < g_base + 0x2c00000) k.stack[j++] = f;
+        }
+    }
+    o_EffectKill(inst);
+}
+
+static void* h_EffectPos(uintptr_t inst) {
+    uintptr_t node = inst ? Field<uintptr_t>(inst, 0x30) : 1;
+    if (node == 0 || node == 0xefaccafeefaccafeull) {   // killed, or its memory already freed (0xEFACCAFE fill)
+        static uintptr_t reported[64];
+        static int nReported;
+        bool seen = false;
+        for (int i = 0; i < nReported; i++) seen |= reported[i] == inst;
+        if (!seen) {
+            if (nReported < 64) reported[nReported++] = inst;
+            void* frames[16];
+            uintptr_t st[5] = {};
+            USHORT n = RtlCaptureStackBackTrace(0, 16, frames, nullptr);
+            for (USHORT i = 0, j = 0; i < n && j < 5; i++) {
+                uintptr_t f = (uintptr_t)frames[i];
+                if (f >= g_base && f < g_base + 0x2c00000) st[j++] = f;
+            }
+            Log("EFECTO MUERTO consultado (%s): %llx (frame %d) <- %llx <- %llx <- %llx <- %llx <- %llx",
+                node ? "memoria liberada" : "matado", Rel(inst), g_frame, Rel(st[0]), Rel(st[1]), Rel(st[2]), Rel(st[3]), Rel(st[4]));
+            bool found = false;
+            for (int i = 0; i < 512; i++) {
+                const Kill& k = g_kills[i];
+                if (k.inst != inst) continue;
+                found = true;
+                Log("  matado en frame %d: %llx <- %llx <- %llx <- %llx <- %llx", k.frame, Rel(k.stack[0]),
+                    Rel(k.stack[1]), Rel(k.stack[2]), Rel(k.stack[3]), Rel(k.stack[4]));
+            }
+            if (!found) Log("  (sin registro de muerte: matado antes de cargar el nucleo o por otra via)");
+            Log("  jugador %llx, Sora P2 %llx", Rel(kh2::Player()), Rel(party::P2Sora()));
+            // who still refers to it: pointers and engine handles in the game's .data (static object pool included)
+            uint32_t h = kh2::PtrToHandle(reinterpret_cast<void*>(inst));
+            int hits = 0;
+            for (uintptr_t q = VA(kh2::DataStart); q < VA(kh2::DataEnd) && hits < 24; q += 4) {
+                if (*reinterpret_cast<uint32_t*>(q) == h ||
+                    ((q & 7) == 0 && *reinterpret_cast<uintptr_t*>(q) == inst)) {
+                    Log("  referencia en %llx (%s)", Rel(q), *reinterpret_cast<uint32_t*>(q) == h ? "handle" : "puntero");
+                    hits++;
+                }
+            }
+        }
+        return g_zero;
+    }
+    return o_EffectPos(inst);
+}
+
 bool Install() {
-    return Hook("MapDraw", 0x1401a5180, "40555356574154415541564157488dac", (void*)h_MapDraw, (void**)&o_MapDraw);
+    g_crashVeh = AddVectoredExceptionHandler(1, CrashLogger);
+    return Hook("MapDraw", 0x1401a5180, "40555356574154415541564157488dac", (void*)h_MapDraw, (void**)&o_MapDraw)
+        && Hook("EffectKill", 0x1402be8a0, "40534883ec2081490c01000100488bd9", (void*)h_EffectKill, (void**)&o_EffectKill)
+        && Hook("EffectPos", 0x1402be970, "488b4930e967460000cccccccccccccc", (void*)h_EffectPos, (void**)&o_EffectPos);
 }
 
 // In-process XInput view (Steam Input may add virtual devices that external tools don't see):
@@ -206,6 +306,7 @@ void Frame() {
 }
 
 void Shutdown() {
+    if (g_crashVeh) { RemoveVectoredExceptionHandler(g_crashVeh); g_crashVeh = nullptr; }
     while (g_armed) Sleep(10);
     if (g_veh) { RemoveVectoredExceptionHandler(g_veh); g_veh = nullptr; }
 }

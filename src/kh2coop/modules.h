@@ -11,6 +11,8 @@ void Shutdown();       // back to single camera (called from the loader thread, 
 void ShutdownAfterHooks();  // restore projection matrices once hooks are disabled
 bool Running();        // dual-camera render mode active
 bool Wanted();
+void BeginP2View();   // camera 2 current while player 2's object updates
+void EndP2View();
 bool P2CameraForward(float& fx, float& fz);   // camera 2 view direction in XZ (unit); false if not set up
 }
 
@@ -55,6 +57,19 @@ namespace hud {
 bool Install();
 void Frame();   // player 2's gauge: create with the HUD, bind to the second Sora; split placement
 void Shutdown();
+}
+
+// ---------------------------------------------------------------- player 2's command menu (cmdmenu.cpp)
+namespace cmdmenu {
+bool Install();
+void BindP2(uintptr_t p2);       // give the second Sora its own FIELD_COMMAND (after its constructor)
+void UnbindP2(uintptr_t p2);     // before the second Sora is destroyed
+void Adopt(uintptr_t p2);        // a second Sora still on P1's menu (core reload) gets P2's
+void Enter();                    // P2's HUD context on (nests)
+void Leave();
+void SetInP1Update(bool on);
+bool OwnsHudObject(uintptr_t o);
+int PoolOf(uintptr_t o);   // diagnostics
 }
 
 // ---------------------------------------------------------------- diagnostics (debug.cpp, debug builds only)

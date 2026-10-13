@@ -22,6 +22,7 @@
 #include "game.h"
 #include "MinHook.h"
 #include <cstdlib>
+#include <climits>
 
 using namespace kc;
 
@@ -75,10 +76,21 @@ static void UpdateJoin() {
     bool ok[4] = {};
     for (int u = 0; u < 4; u++) ok[u] = o_XInputGetState(u, &st[u]) == 0;
 
+    // Steam Input's virtual devices can drop out for a moment: read from another of player 2's users if one
+    // still answers, and only treat the controller as gone after 2 s without any.
+    static int lostFrames = 0;
     if (g_p2User >= 0 && !ok[g_p2User]) {
-        Log("jugador 2: mando desconectado");
-        g_p2Mask = 0;
-        g_p2User = -1;
+        for (int v = 0; v < 4; v++)
+            if ((g_p2Mask >> v & 1) && ok[v]) { g_p2User = v; break; }
+    }
+    if (g_p2User >= 0 && !ok[g_p2User]) {
+        if (++lostFrames == 120) {
+            Log("jugador 2: mando desconectado");
+            g_p2Mask = 0;
+            g_p2User = -1;
+        }
+    } else {
+        lostFrames = 0;
     }
     for (int u = 0; u < 4; u++) {
         bool combo = ok[u] && (st[u].pad.buttons & (XLB | XRB)) == (XLB | XRB);
@@ -102,7 +114,8 @@ static void UpdateJoin() {
         }
         g_rumbleUsers = users;
         Rumble(users, 65535);                                     // confirmation on that controller
-        break;   // its virtual duplicates reach 60 frames in the same frame: one event only
+        for (int v = 0; v < 4; v++) holdFrames[v] = INT_MIN / 2;  // next gesture only after releasing
+        break;
     }
     if (g_rumbleFrames > 0 && --g_rumbleFrames == 0) Rumble(g_rumbleUsers, 0);
 }

@@ -156,6 +156,19 @@ F1 modos de composición, F9 flush DMA manual, F10 activar/desactivar fix de ín
 - PENDIENTE: cierre al lanzar Piro (P1) con Sora P2 presente: VM de scripts 0x14041e2c0 pide la posición de un
   objeto (FUN_1402be970 -> +0x30 nulo, objeto ya destruido con 0x1402be8a0).
 
+## Menú de comandos de P2 (v0.38) — ver research/command_menu.md
+- El "controlador de jugador" 0x142a10620 ES el menú (YS::FIELD_COMMAND único). P2 tiene el suyo (ctor del juego),
+  ligado a mano (P2+0xdc0/+0xdd0/+0xdc8). Contexto de dibujo de P2 = globales 0x140abc4e0..0x140abc510, intercambiados
+  durante el update de P2, las tareas 2D de sus piezas (grupos 0x101/0x102) y el teardown.
+- Liberación de entradas COMMAND_ONE (vtable[0] 0x14015b420) empuja al free list del pool *actual*: se hace en el
+  contexto del pool al que pertenece la entrada (si no, corrompía el pool de P1 -> cierres con Objeto).
+- Objetivos de objetos = id de personaje (obj+8 -> objentry +0x4c); PartyMemberById 0x1403d5c70 y PartyMember
+  0x1403d5c50 (0 = g_Player) responden P2 en el contexto de P2.
+- Movimiento: stick -> mundo con la cámara actual (0x1403a7fb0, GetCamera 0x14019ce40 = banco[índice]): durante el
+  update de P2, la ranura 1 = cámara 2 guardada tras su commit e índice 1.
+- PENDIENTE: scripts de magia/ataque consultan efectos ya muertos (0x14041e2c0 -> 0x1402be970, +0x30 = 0); la build
+  debug lo esquiva y registra. Barra de PM de P2 se rellena sola.
+
 ## Pendiente
 - [ ] Confirmar en vivo g_Player / g_Sora y la party (Donald/Goofy) en memoria
 - [ ] Qué backend usa el juego (DX11 o DX12) en tu PC

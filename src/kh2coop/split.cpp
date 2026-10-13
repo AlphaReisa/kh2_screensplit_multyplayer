@@ -118,6 +118,31 @@ static void UpdateP2Camera() {
     eye[2] = tgt[2] + cosf(g_cam2Yaw) * horiz;
 }
 
+// Player 2's view during player 2's object update. Game logic runs with camera index 0 (player 1's camera);
+// what derives from "the current camera" (GetCamera 0x14019ce40 = bank[index]), such as turning the stick
+// into a world direction (0x1403a7fb0) or picking targets, has to use camera 2 for the second Sora. Slot 1
+// is set to camera 2 as last committed and made current, then both are put back.
+static uint8_t g_cam2Slot[0x80];
+static bool g_cam2SlotValid = false;
+static uint8_t g_slot1Saved[0x80];
+static bool g_p2View = false;
+
+void BeginP2View() {
+    if (!g_running || !g_cam2SlotValid || g_p2View) return;
+    uint8_t* slot1 = reinterpret_cast<uint8_t*>(VA(kh2::CamBank) + 0x80);
+    memcpy(g_slot1Saved, slot1, sizeof(g_slot1Saved));
+    memcpy(slot1, g_cam2Slot, sizeof(g_cam2Slot));
+    Global<int32_t>(kh2::CamIndex) = 1;
+    g_p2View = true;
+}
+
+void EndP2View() {
+    if (!g_p2View) return;
+    Global<int32_t>(kh2::CamIndex) = 0;
+    memcpy(reinterpret_cast<void*>(VA(kh2::CamBank) + 0x80), g_slot1Saved, sizeof(g_slot1Saved));
+    g_p2View = false;
+}
+
 // Camera 2's view direction straight from its own state: camera slot 1 is only rebuilt during the
 // pass-1 commit, so reading it at other points of the frame can return another camera's contents.
 bool P2CameraForward(float& fx, float& fz) {
@@ -177,6 +202,10 @@ static void h_CamCommit() {
     int idx = Global<int32_t>(kh2::CamIndex);
     if (g_running && idx == 1) UpdateP2Camera();
     o_CamCommit();
+    if (g_running && idx == 1) {   // camera 2 as committed: player 2's view for next frame's logic
+        memcpy(g_cam2Slot, reinterpret_cast<void*>(VA(kh2::CamBank) + 0x80), sizeof(g_cam2Slot));
+        g_cam2SlotValid = true;
+    }
     if (idx != 0 && idx != 1) return;
     g_lastPassIdx = idx;
     if (g_running && g_wanted) ShiftProjection(idx, idx == 0 ? -0.5f : 0.5f);   // P1 left, P2 right
@@ -223,6 +252,7 @@ void Frame() {
     if (g_wanted && !g_running) {
         g_startFrame = g_frame;
         g_cam2Init = false;   // camera 2 starts from the game camera's current yaw
+        g_cam2SlotValid = false;
         g_running = true;
         GameFn<void (*)(float)>(0x140163440)(10000.0f);   // very long crossfade = dual camera stays on
     }

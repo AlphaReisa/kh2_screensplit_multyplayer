@@ -99,28 +99,30 @@ static void* h_SoraCtor(void* self, void* objentry, int form, uint64_t p4, void*
     g_repairP1 = sora;
     g_repairFrames = 120;   // some globals are bound right after construction
     RepairP1Pointers(sora, (uintptr_t)self);
+    cmdmenu::BindP2((uintptr_t)self);   // its own command menu instead of P1's
     Log("Sora P2 creado en %llx (P1 %llx)", Rel(g_p2Sora), Rel(player));
     return r;
 }
 
-// "Attack" normally goes through the (single, P1) command menu, so P2 issues battle command 1 directly.
-static void P2Commands(uintptr_t p2) {
-    WORD pr = input::TakePressed();
-    if (pr & 0x1000) kh2::ExecCommand(p2, 1);   // A: Attack
-    // Magic stays disabled until the P2 command menu enumerates P2's real (loaded) spells: casting a
-    // spell that is not in the loaded-magic table dereferences NULL in 0x1403c5170 (crash 13-10 14:55).
-    static bool told = false;
-    if ((pr & 0xC000) && !told) { told = true; Log("P2 magia: desactivada hasta tener menu de comandos propio"); }
-}
-
-// Per-object update: the P2 Sora runs with pad 0 and pad 1 swapped, so all its pad reads see player 2.
+// Per-object update. The P2 Sora runs with pad 0 and pad 1 swapped, so all its pad reads (its own command
+// menu included) see player 2, in P2's HUD context, so its menu draws on P2's own menu HUD, and with camera 2
+// as the current camera, so its movement and targeting are relative to player 2's view.
 static void h_ObjUpdate(intptr_t o) {
     uintptr_t p2 = P2Sora();
-    if (!p2 || (uintptr_t)o != p2) { o_ObjUpdate(o); return; }
-    P2Commands(p2);
-    input::SwapPads();
+    if (p2 && (uintptr_t)o == p2) {
+        input::SwapPads();
+        cmdmenu::Enter();
+        split::BeginP2View();
+        o_ObjUpdate(o);
+        split::EndP2View();
+        cmdmenu::Leave();
+        input::SwapPads();
+        return;
+    }
+    bool p1 = (uintptr_t)o == kh2::Player();
+    if (p1) cmdmenu::SetInP1Update(true);
     o_ObjUpdate(o);
-    input::SwapPads();
+    if (p1) cmdmenu::SetInP1Update(false);
 }
 
 // ---------------------------------------------------------------- live swap Goofy <-> P2 Sora
@@ -171,6 +173,7 @@ static void GoofyToSora(uintptr_t goofy) {
 static void SoraToGoofy(uintptr_t sora) {
     uintptr_t player = Global<uintptr_t>(kh2::PlayerPtr), p1Sora = Global<uintptr_t>(kh2::SoraPtr);
     g_coopMode = false;
+    cmdmenu::UnbindP2(sora);
     Global<uintptr_t>(kh2::PlayerPtr) = 0;
     DestroyObject(sora);
     Global<uintptr_t>(kh2::PlayerPtr) = player;
@@ -187,12 +190,15 @@ static void FollowJoin() {
     if (want == g_coopMode) return;
     uintptr_t p1 = kh2::Player();
     if (!p1) { g_coopMode = want; return; }   // no area loaded: applies when one loads
+    // Like the Drive-form change, the swap waits until the character is standing idle: an object destroyed in
+    // the middle of an action leaves that action's pending command / references behind.
     if (want) {
         friendctl::Refresh();
-        if (uintptr_t goofy = friendctl::Goofy()) GoofyToSora(goofy);
-        else g_coopMode = true;
+        uintptr_t goofy = friendctl::Goofy();
+        if (!goofy) g_coopMode = true;
+        else if (kh2::InIdleAction(goofy)) GoofyToSora(goofy);
     } else if (uintptr_t sora = P2Sora()) {
-        SoraToGoofy(sora);
+        if (kh2::InIdleAction(sora)) SoraToGoofy(sora);
     } else {
         g_coopMode = false;
     }
@@ -212,6 +218,7 @@ static void FindP2Sora() {
         if (!kh2::InObjectList(found[i])) continue;
         g_p2Sora = found[i];
         Log("Sora P2 encontrado en %llx", Rel(g_p2Sora));
+        cmdmenu::Adopt(g_p2Sora);
         break;
     }
 }
