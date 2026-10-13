@@ -1,0 +1,28 @@
+# --- never commit game binaries, dumps or saves ---
+research/bin/
+*.exe
+*.dmp
+/backups/
+
+# --- heavy local tooling (JDK, Ghidra, REA) and the Ghidra project database ---
+/tools/
+/ghidra-projects/
+
+# --- generated research artefacts (regenerate with research/scripts + q.sh) ---
+research/shots/
+research/*.tsv
+research/*.log
+research/c*.txt
+research/o*.txt
+
+# --- build output ---
+src/kh2coop/build/
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+
+# --- python ---
+__pycache__/
+*.pyc
