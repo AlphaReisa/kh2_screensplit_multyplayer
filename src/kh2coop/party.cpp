@@ -16,6 +16,7 @@
 #include "modules.h"
 #include "game.h"
 #include <intrin.h>
+#include <utility>
 
 using namespace kc;
 
@@ -30,6 +31,20 @@ static uintptr_t g_p2Sora = 0;
 uintptr_t P2Sora() {
     return (kh2::IsLiveSora(g_p2Sora) && g_p2Sora != kh2::Player()) ? g_p2Sora : 0;
 }
+
+// ---------------------------------------------------------------- current form, per player
+// The current Drive form is one save byte (0x1409acdd4): FormChangeRequest 0x14040ce60 compares against it
+// and sets it, and a zone load builds the player in it (SoraObjId(form)). It is player 1's; player 2's is kept
+// in the persistent block and is the current form only while player 2's code runs (its object update and its
+// constructors), so player 2 drives / reverts / reloads in its own form and player 1 never inherits it.
+static const uintptr_t kCurrentForm = 0x1409acdd4;
+static int g_p2FormDepth = 0;
+
+static void SwapForm() { std::swap(Global<uint8_t>(kCurrentForm), Persist().p2Form); }
+struct P2FormScope {
+    P2FormScope() { if (g_p2FormDepth++ == 0) SwapForm(); }
+    ~P2FormScope() { if (--g_p2FormDepth == 0) SwapForm(); }
+};
 
 // ---------------------------------------------------------------- P1 globals
 // The SORA constructor binds "the player" globals to whatever Sora it builds. Measured list (v0.36):
@@ -66,7 +81,7 @@ static ObjFn o_ObjUpdate;
 static uint32_t h_PartySlotObjId(int slot) {
     uint32_t id = o_PartySlotObjId(slot);
     if (!g_coopMode || slot != kGoofySlot || !id) return id;
-    uint32_t soraId = GameFn<uint32_t (*)(int)>(0x140405190)(0) & 0xFFFF;
+    uint32_t soraId = GameFn<uint32_t (*)(int)>(0x140405190)(Persist().p2Form) & 0xFFFF;   // in player 2's form
     Log("hueco %d: objentry %x -> Sora %x", slot, id, soraId);
     g_pendingP2 = true;
     return soraId;
@@ -170,6 +185,7 @@ static const uintptr_t kFormCtorReturn = 0x14040d2b1;
 static const uintptr_t kFormContext = 0x142ae9fa8;
 
 static void* P2FormCtor(void* self, void* objentry, int form, uint64_t p4, void* pos, uint32_t yaw) {
+    P2FormScope formScope;
     uintptr_t player = kh2::Player(), sora = Global<uintptr_t>(kh2::SoraPtr);
     g_formP1 = player;
     g_inP2FormCtor = true;
@@ -199,7 +215,11 @@ static void* h_SoraCtor(void* self, void* objentry, int form, uint64_t p4, void*
         return o_SoraCtor(self, objentry, form, p4, pos, yaw);
     g_pendingP2 = false;
     g_inP2Ctor = true;
-    void* r = o_SoraCtor(self, objentry, form, p4, pos, yaw);
+    void* r;
+    {
+        P2FormScope formScope;
+        r = o_SoraCtor(self, objentry, form, p4, pos, yaw);
+    }
     g_inP2Ctor = false;
     g_p2Sora = (uintptr_t)self;
     g_repairP1 = sora;
@@ -220,6 +240,7 @@ static void h_ObjUpdate(intptr_t o) {
     uintptr_t p2 = P2Sora();
     if (p2 && (uintptr_t)o == p2) {
         g_inP2Update = true;
+        P2FormScope formScope;
         input::SwapPads();
         cmdmenu::Enter();
         split::BeginP2View();
@@ -265,14 +286,38 @@ static void h_PlayerBind(uintptr_t obj) {
 }
 
 // Player 2's forms take no party members: Donald and Goofy are player 1's. DriveRequirement 0x1404005e0
-// (cmd; 0 = available) and AbsorbParty 0x140400b20(form) run from the commanding Sora's update.
+// (cmd; 0 = available, 1 = member unable, 2 = member missing) and AbsorbParty 0x140400b20(form) run from the
+// commanding Sora's update.
+// Player 1's forms: the requirement is that the members a form takes are in the party (Valor: Goofy, charId 3;
+// Wisdom: Donald, 2; Limit: none; Master / Final / Anti: both). The second Sora stands in Goofy's party slot,
+// so with it present the slot it fills counts as there; the members actually present are checked as the game
+// does (alive 0x1403ba720, able 0x1403c38f0). Absorbing then takes whoever is really there, never player 2.
 using DriveReqFn = int (*)(uintptr_t cmd);
 using AbsorbFn = void (*)(int form);
 static DriveReqFn o_DriveRequirement;
 static AbsorbFn o_AbsorbParty;
 static int h_DriveRequirement(uintptr_t cmd) {
-    if (InP2Update() && cmd && Field<uint16_t>(cmd, 2) == 4) return 0;
-    return o_DriveRequirement(cmd);
+    bool drive = cmd && Field<uint16_t>(cmd, 2) == 4;
+    if (drive && InP2Update()) return 0;
+    int r = o_DriveRequirement(cmd);
+    if (r != 2 || !drive || !P2Sora()) return r;
+    int form = Field<int16_t>(cmd, 4);
+    if (form == 3 || form < 1 || form > 6) return r;
+    int result = 0, empty = 0;
+    for (int i = 0; i < 2; i++) {
+        uintptr_t m = GameFn<uintptr_t (*)(int)>(0x1403c3270)(i);
+        bool alive = m && GameFn<char (*)(uintptr_t)>(0x1403ba720)(m);
+        int id = alive ? GameFn<uint16_t (*)(uintptr_t)>(0x1403b5b20)(m) : 0;
+        if (form == 1 || form == 2) {
+            if (id != (form == 1 ? 3 : 2)) continue;   // not the member this form takes
+        } else if (!id) {
+            if (++empty > 1) return 2;                 // only one slot can be player 2's
+            continue;                                  // the slot player 2 fills
+        }
+        if (!GameFn<char (*)(uintptr_t)>(0x1403c38f0)(m)) result = 1;
+    }
+    if (form == 2) return r;   // Wisdom needs Donald himself (player 2 stands in for Goofy only)
+    return result;
 }
 static void h_AbsorbParty(int form) {
     if (InP2Update()) return;
@@ -324,6 +369,7 @@ static void SoraToGoofy(uintptr_t sora) {
     g_coopMode = false;
     DestroyObject(sora);   // player 2's destroy path (h_SoraDestroy)
     g_p2Sora = 0;
+    Persist().p2Form = 0;  // player 2 comes back in base form
     uintptr_t goofy = SpawnLike(sora);
     if (!goofy) { Log("cambio Sora P2 -> Goofy: fallo al crear"); return; }
     MoveReferences(sora, goofy);
@@ -413,6 +459,9 @@ bool Install() {
         && Hook("DriveRequirement", 0x1404005e0, "40535741564883ec300fb741026683f8", (void*)h_DriveRequirement, (void**)&o_DriveRequirement)
         && Hook("AbsorbParty", 0x140400b20, "48895c24084889742410574883ec300f", (void*)h_AbsorbParty, (void**)&o_AbsorbParty)
         && CheckBytes(0x1403d6770, "40554883ec208b8120010000488be9c1")    // generic object destroy
+        && CheckBytes(0x1403c3270, "4863c1488d0d36076602488b04c1c3cc")    // friend in party slot i
+        && CheckBytes(0x1403ba720, "40534883ec20488bd9e84254000084c0")    // object alive
+        && CheckBytes(0x1403c38f0, "40534883ec20488bd9e85200000084c0")    // member able
         && CheckBytes(0x1402be8a0, "40534883ec2081490c01000100488bd9")    // effect kill
         && Hook("ObjUpdate", 0x1403bfd30, "40534883ec30488bd90f297424208b49", (void*)h_ObjUpdate, (void**)&o_ObjUpdate)
         && CheckBytes(0x1403d6fc0, "48895c2410574883ec3081a124010000")    // ExecCommand, called directly

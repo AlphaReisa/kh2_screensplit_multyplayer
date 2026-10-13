@@ -7,7 +7,7 @@
 
 using namespace kc;
 
-#define KH2COOP_VERSION "0.41"
+#define KH2COOP_VERSION "0.42"
 
 using VoidFn = void (*)();
 static VoidFn o_RenderPrep;

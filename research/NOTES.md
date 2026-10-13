@@ -185,7 +185,10 @@ F1 modos de composición, F9 flush DMA manual, F10 activar/desactivar fix de ín
   StatusSlotFor siempre corre el original (lleva el refcount +0x264) ocultando la ficha del otro jugador.
   HUD: avisos por objeto (0x140168930/8f0/8b0/870 = bits 1..4, tabla 0x140abcfe8 + flags 0x140abd000); el indicador
   de P2 escucha el índice 0x40 (flags propios) y su reenganche se hace en hud.cpp (el handler bit0 usa el hueco 0).
-- PENDIENTE: cambio de zona con P2 en forma (byte de forma 0x1409acdd4 global -> P1 aparecería en esa forma).
+- v0.42: forma actual por jugador: 0x1409acdd4 es de P1; la de P2 (Persistent::p2Form) se intercambia durante el
+  update y los ctors de P2; P2 aparece en su forma al cargar zona (PartySlotObjId -> SoraObjId(p2Form)) y el estado
+  de la forma se restaura de su raíz propia. Requisito de grupo de P1: el Sora P2 cuenta como el miembro del hueco
+  de Goofy (Valor y Maestra/Final disponibles; se absorbe a quien esté de verdad).
 - (histórico) BLOQUEADO: los indicadores Drive/forma se cargan del registro de partida de Sora (ficha +0x26c raíz,
   0x1409abda0+0x1038..; +0x250 registro de personaje). La ficha propia de P2 no lo tiene (Drive 0/0) y las
   escrituras de vuelta (0x1403c2120) mezclarían P1/P2. Además, en la fusión de P2 el gasto/arranque del indicador
