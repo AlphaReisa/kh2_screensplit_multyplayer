@@ -162,6 +162,9 @@ void Frame() {
         return;
     }
     SetGaugeOffsetX(g_gauge2, 0);
+    // without a second Sora the gauge is hidden (Obj2D flag 2, as a group hide does), shown again on bind
+    if (p2) Field<uint32_t>(g_gauge2, 0x10) &= ~2u;
+    else Field<uint32_t>(g_gauge2, 0x10) |= 2u;
     uintptr_t& bound = Field<uintptr_t>(g_gauge2, 0x40);
     if (bound != p2) {   // bind / unbind player 2 (no player: the gauge does not update or draw)
         bound = p2;

@@ -28,6 +28,7 @@ constexpr size_t Scale        = 0x030;  // vec4 (1,1,1,1) for live models
 constexpr size_t Pos          = 0x070;  // vec4 world position (copied from TruePos each frame)
 constexpr size_t RunSpeed     = 0x12c;  // float, w of MoveVec when running
 constexpr size_t Status       = 0x5c0;  // battle status slot (HP +0, max +4, MP +0x180, max +0x184)
+constexpr size_t Yaw          = 0x68c;  // float, facing
 constexpr size_t ListNext     = 0xa90;  // u32 handle of the next active object
 constexpr size_t FriendBrain  = 0xdf8;  // kn::Friend: AI personality object
 constexpr size_t FriendBehave = 0xe00;  // kn::Friend: current behaviour routine

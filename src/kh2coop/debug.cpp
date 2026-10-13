@@ -290,11 +290,24 @@ static int h_EffectStart(uintptr_t inst, uintptr_t arg) {
     return r;
 }
 
+// Diagnosing: objects spawned from spawn-group entries (SpawnFromEntryAt 0x1403fe650), with the caller.
+using SpawnAtFn = uintptr_t (*)(uintptr_t entry, uintptr_t group, uintptr_t pos);
+static SpawnAtFn o_SpawnAt;
+static uintptr_t h_SpawnAt(uintptr_t entry, uintptr_t group, uintptr_t pos) {
+    uint32_t id = entry ? Field<uint32_t>(entry, 0) : 0;
+    Log("SpawnFromEntryAt: id %x entrada %llx grupo %llx <- %llx (forma P1 %d, P2 %d)", id, Rel(entry), Rel(group),
+        Rel((uintptr_t)_ReturnAddress()), Global<uint8_t>(0x1409acdd4), Persist().p2Form);
+    uintptr_t r = o_SpawnAt(entry, group, pos);
+    Log("  -> %llx", Rel(r));
+    return r;
+}
+
 bool Install() {
     g_crashVeh = AddVectoredExceptionHandler(1, CrashLogger);
     return Hook("MapDraw", 0x1401a5180, "40555356574154415541564157488dac", (void*)h_MapDraw, (void**)&o_MapDraw)
         && Hook("EffectKill", 0x1402be8a0, "40534883ec2081490c01000100488bd9", (void*)h_EffectKill, (void**)&o_EffectKill)
         && Hook("EffectStart", 0x1402bec80, "40534883ec4083790804488bd90f2974", (void*)h_EffectStart, (void**)&o_EffectStart)
+        && Hook("SpawnFromEntryAt", 0x1403fe650, "48895c24084889742410574883ec20f3", (void*)h_SpawnAt, (void**)&o_SpawnAt)
         && Hook("EffectPos", 0x1402be970, "488b4930e967460000cccccccccccccc", (void*)h_EffectPos, (void**)&o_EffectPos);
 }
 

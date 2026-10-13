@@ -342,10 +342,20 @@ static void MoveReferences(uintptr_t from, uintptr_t to) {
     GameFn<void (*)()>(0x1401b7f70)();   // re-bind the party table (player, friends) and the friend brains
 }
 
+// Objects not spawned from an entry (e.g. a member brought back by RestoreParty when a form ends) get the
+// party slot's member through the generic spawn the entry path uses (SpawnObject 0x1403df930(id, pos, yaw)),
+// with the party slot's pseudo id (0x237 = slot 1, resolved by PartySlotObjId).
+static const uint32_t kPartySlot1Id = 0x237;
+
+static uintptr_t SpawnPartySlotAt(const float* where, float yaw) {
+    float pos[4] = {where[0], where[1], where[2], 0};
+    return GameFn<uintptr_t (*)(uint32_t, float*, float)>(0x1403df930)(kPartySlot1Id, pos, yaw);
+}
+
 static uintptr_t SpawnLike(uintptr_t old) {
     uintptr_t group = Field<uintptr_t>(old, 0x9e8);
     void* entry = Field<void*>(old, 0x9f0);
-    if (!group || !entry) return 0;
+    if (!group || !entry) return SpawnPartySlotAt(kh2::Pos(old), Field<float>(old, kh2::obj::Yaw));
     float pos[4] = {kh2::Pos(old)[0], kh2::Pos(old)[1], kh2::Pos(old)[2], 0};   // where the old one stands
     return GameFn<uintptr_t (*)(void*, uintptr_t, float*)>(0x1403fe650)(entry, group, pos);
 }
@@ -364,12 +374,56 @@ static void GoofyToSora(uintptr_t goofy) {
     Log("Goofy -> Sora P2 (%llx)", Rel(sora));
 }
 
-// Second Sora -> Goofy (its destroy goes through h_SoraDestroy).
+// Second Sora -> Goofy (its destroy goes through h_SoraDestroy). If player 1 is in a form that takes the
+// member of Goofy's slot (IsAbsorbedByForm 0x140400410(form, charId)), that member is not spawned now (the game
+// refuses to): it is added to the form's absorbed list (0x142ae9788 / count 0x142ae9790, as AbsorbOne
+// 0x140400990 does with 0x1403e31c0(charId)) and comes back when player 1 reverts (RestoreParty 0x140400440).
+// Character id of the area's member for Goofy's slot, or 0 if the area has none.
+static int SlotMemberCharId() {
+    uint32_t id = o_PartySlotObjId(kGoofySlot);
+    uintptr_t objentry = id ? GameFn<uintptr_t (*)(uint32_t)>(0x1403dfeb0)(id) : 0;
+    return objentry ? Field<uint16_t>(objentry, 0x4c) : 0;
+}
+
+static bool Player1FormTakes(int charId) {
+    return charId && GameFn<bool (*)(int, int)>(0x140400410)(Global<uint8_t>(kCurrentForm), charId);
+}
+
+// Bringing the slot's member back needs its model resident; a Drive form change frees unreferenced models
+// (and the member's was unreferenced while player 2 stood in its slot). The member is preloaded the way a zone
+// preloads its spawn list (ObjPreload 0x1403e0460(0x237, -1, 0x1e)) and only spawned once its model is in the
+// resource list (ResFind 0x14039e1e0(name, -1); name from ObjModelName 0x1403e0b50).
+static bool SlotMemberModelReady() {
+    uint32_t id = o_PartySlotObjId(kGoofySlot);
+    uintptr_t objentry = id ? GameFn<uintptr_t (*)(uint32_t)>(0x1403dfeb0)(id) : 0;
+    if (!objentry) return true;
+    bool coop = g_coopMode;
+    g_coopMode = false;   // 0x237 resolves to the member itself
+    GameFn<void (*)(uint32_t, uint32_t, int)>(0x1403e0460)(kPartySlot1Id, 0xffffffff, 0x1e);
+    g_coopMode = coop;
+    char name[96] = {};
+    const char* model = GameFn<const char* (*)(uintptr_t, char*)>(0x1403e0b50)(objentry, name);
+    return model && GameFn<uintptr_t (*)(const char*, int)>(0x14039e1e0)(model, -1) != 0;
+}
+
+static bool AbsorbedByPlayer1Form() {
+    int charId = SlotMemberCharId();
+    if (!Player1FormTakes(charId)) return false;
+    int& count = Global<int32_t>(0x142ae9790);
+    if (count < 2) {
+        Global<uint32_t>(0x142ae9788 + count * 4) = GameFn<uint32_t (*)(int)>(0x1403e31c0)(charId);
+        count++;
+    }
+    Log("Sora P2 -> compañero absorbido por la forma del jugador 1 (vuelve al revertir)");
+    return true;
+}
+
 static void SoraToGoofy(uintptr_t sora) {
     g_coopMode = false;
     DestroyObject(sora);   // player 2's destroy path (h_SoraDestroy)
     g_p2Sora = 0;
     Persist().p2Form = 0;  // player 2 comes back in base form
+    if (AbsorbedByPlayer1Form()) return;
     uintptr_t goofy = SpawnLike(sora);
     if (!goofy) { Log("cambio Sora P2 -> Goofy: fallo al crear"); return; }
     MoveReferences(sora, goofy);
@@ -386,17 +440,38 @@ static void FollowJoin() {
     // the middle of an action leaves that action's pending command / references behind.
     if (!want) {
         if (sora) {   // also a second Sora left over without player 2 (e.g. found after a core reload)
-            if (kh2::InIdleAction(sora) || g_shuttingDown) SoraToGoofy(sora);
+            if (!kh2::InIdleAction(sora) && !g_shuttingDown) return;
+            if (!Player1FormTakes(SlotMemberCharId()) && !SlotMemberModelReady() && !g_shuttingDown) {
+                static int lastLog;
+                if (g_frame - lastLog > 120) { lastLog = g_frame; Log("esperando el modelo del companero para volver"); }
+                return;
+            }
+            SoraToGoofy(sora);
         } else {
             g_coopMode = false;
         }
         return;
     }
-    if (sora || g_coopMode) { g_coopMode = true; return; }
+    if (sora) { g_coopMode = true; return; }
     friendctl::Refresh();
     uintptr_t goofy = friendctl::Goofy();
-    if (!goofy) g_coopMode = true;
-    else if (kh2::InIdleAction(goofy)) GoofyToSora(goofy);
+    if (goofy) {
+        if (!g_coopMode && kh2::InIdleAction(goofy)) GoofyToSora(goofy);
+        return;
+    }
+    g_coopMode = true;   // spawns in Goofy's slot from now on (zone loads)
+    // No member in Goofy's slot right now (e.g. it came back without a spawn entry and was swapped, or the
+    // area was entered while player 2 was away): once the zone has settled, player 2's Sora appears next to
+    // player 1 — unless player 1's form has the slot's member absorbed (it then returns on revert).
+    static uintptr_t lastP1;
+    static int settled;
+    uintptr_t p1 = kh2::Player();
+    settled = p1 == lastP1 ? settled + 1 : 0;
+    lastP1 = p1;
+    int charId = SlotMemberCharId();
+    if (settled < 60 || !charId || Player1FormTakes(charId) || !kh2::InIdleAction(p1)) return;
+    if (SpawnPartySlotAt(kh2::Pos(p1), Field<float>(p1, kh2::obj::Yaw))) Log("Sora P2 aparece junto al jugador 1");
+    settled = 0;
 }
 
 // ---------------------------------------------------------------- frame
@@ -459,6 +534,13 @@ bool Install() {
         && Hook("DriveRequirement", 0x1404005e0, "40535741564883ec300fb741026683f8", (void*)h_DriveRequirement, (void**)&o_DriveRequirement)
         && Hook("AbsorbParty", 0x140400b20, "48895c24084889742410574883ec300f", (void*)h_AbsorbParty, (void**)&o_AbsorbParty)
         && CheckBytes(0x1403d6770, "40554883ec208b8120010000488be9c1")    // generic object destroy
+        && CheckBytes(0x1403e0460, "48895c24104889742418574883ec208b")    // ObjPreload
+        && CheckBytes(0x1403e0b50, "48895c2408574883ec204885d2488d79")    // ObjModelName
+        && CheckBytes(0x14039e1e0, "48895c2408574883ec208bda488bf945")    // ResFind
+        && CheckBytes(0x1403df930, "48895c2410574883ec400f297424300f")    // SpawnObject
+        && CheckBytes(0x1403e31c0, "83e901742183e901741683e901740b83")    // charId -> party member id
+        && CheckBytes(0x140400410, "85c9742583f9077d2083e901741483e9")    // IsAbsorbedByForm
+        && CheckBytes(0x1403dfeb0, "40534883ec208bc18bd125ffffff0f3d")    // objentry lookup
         && CheckBytes(0x1403c3270, "4863c1488d0d36076602488b04c1c3cc")    // friend in party slot i
         && CheckBytes(0x1403ba720, "40534883ec20488bd9e84254000084c0")    // object alive
         && CheckBytes(0x1403c38f0, "40534883ec20488bd9e85200000084c0")    // member able

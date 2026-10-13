@@ -195,6 +195,17 @@ F1 modos de composición, F9 flush DMA manual, F10 activar/desactivar fix de ín
   acabó en la ficha de P1 (registro de StatusSlotFor pendiente de leer). Falta: datos de partida propios de P2.
   Mientras, Drive/Revertir en gris para P2 (CmdUsable 0x140401d60).
 
+## Volver a Goofy de forma segura (v0.43)
+- Un cambio de forma libera los modelos sin referencias (el del miembro del hueco de Goofy no se usa mientras P2
+  ocupa el hueco) -> crear a Goofy después cerraba el juego (ResGet 0x14039cc40 con recurso ausente). Antes de
+  volver: precarga como la zona (ObjPreload 0x1403e0460(0x237, -1, 0x1e), con el modo coop apagado para que 0x237 sea
+  el miembro) y espera hasta que ResFind 0x14039e1e0(ObjModelName 0x1403e0b50(objentry), -1) lo encuentre.
+- Si la forma actual de P1 absorbe a ese miembro (IsAbsorbedByForm 0x140400410), se añade a la lista de absorbidos
+  (0x142ae9788 / 0x142ae9790, valor 0x1403e31c0(charId)) y vuelve al revertir (RestoreParty 0x140400440).
+- Objetos sin entrada de aparición (traídos por RestoreParty): SpawnObject 0x1403df930(0x237, pos, yaw).
+- Si P2 está unido sin Goofy ni Sora P2 (y nada lo absorbe), el Sora P2 aparece junto a P1 al asentarse la zona.
+- El indicador de P2 se oculta (flag Obj2D 2) cuando no hay Sora P2.
+
 ## Pendiente
 - [ ] Confirmar en vivo g_Player / g_Sora y la party (Donald/Goofy) en memoria
 - [ ] Qué backend usa el juego (DX11 o DX12) en tu PC
