@@ -38,9 +38,8 @@ bool KeyDown(int vk);
 // ---------------------------------------------------------------- config (kh2coop.ini next to the game exe)
 struct Config {
     int  keySplit    = VK_F8;   // toggle split screen
-    int  keyCoopMode = VK_F6;   // toggle "second Sora replaces Goofy" (applies on next area load)
     int  keyRepair   = VK_F7;   // re-bind globals for a P2 Sora that existed before a core reload
-    bool coopMode    = false;   // initial state of the second-Sora mode
+    bool secondSora  = true;    // player 2 plays a second Sora (false: player 2 controls Goofy)
 };
 extern Config g_cfg;
 void LoadConfig();

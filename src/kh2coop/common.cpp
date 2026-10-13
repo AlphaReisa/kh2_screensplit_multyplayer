@@ -71,11 +71,9 @@ void LoadConfig() {
     char buf[32];
     GetPrivateProfileStringA("keys", "split", "F8", buf, sizeof(buf), path);
     g_cfg.keySplit = ParseKey(buf, VK_F8);
-    GetPrivateProfileStringA("keys", "coop_mode", "F6", buf, sizeof(buf), path);
-    g_cfg.keyCoopMode = ParseKey(buf, VK_F6);
     GetPrivateProfileStringA("keys", "repair", "F7", buf, sizeof(buf), path);
     g_cfg.keyRepair = ParseKey(buf, VK_F7);
-    g_cfg.coopMode = GetPrivateProfileIntA("coop", "second_sora", 0, path) != 0;
+    g_cfg.secondSora = GetPrivateProfileIntA("coop", "second_sora", 1, path) != 0;
 }
 
 }  // namespace kc

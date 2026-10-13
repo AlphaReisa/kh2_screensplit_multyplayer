@@ -42,10 +42,9 @@ Configuración opcional en `kh2coop.ini` (carpeta del juego):
 ```
 [keys]
 split=F8
-coop_mode=F6
 repair=F7
 [coop]
-second_sora=0
+second_sora=1   ; 1: el jugador 2 es un segundo Sora, 0: controla a Goofy
 ```
 
 ## Plan (hacerlo bien, sin apaños)

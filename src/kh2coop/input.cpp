@@ -88,6 +88,7 @@ static void UpdateJoin() {
         bool combo = ok[u] && (st[u].pad.buttons & (XLB | XRB)) == (XLB | XRB);
         holdFrames[u] = combo ? holdFrames[u] + 1 : 0;
         if (holdFrames[u] != 60) continue;                        // held for one second
+        if (g_p2User >= 0 && !(g_p2Mask >> u & 1)) continue;     // joined: only player 2's controller can leave
         int users = g_p2Mask >> u & 1 ? g_p2Mask : 0;
         if (users) {
             Log("jugador 2 sale (usuario XInput %d)", u);

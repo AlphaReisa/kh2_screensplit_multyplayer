@@ -26,3 +26,4 @@ src/kh2coop/build/
 # --- python ---
 __pycache__/
 *.pyc
+research/snap_*.bin

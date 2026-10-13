@@ -121,6 +121,28 @@ F1 modos de composición, F9 flush DMA manual, F10 activar/desactivar fix de ín
 - MAGIA: CastMagic 0x1403c5170 busca la magia en la tabla de 6 magias cargadas 0x142a23a80 (entradas 0x50, [9]->datos,
   id en +0x26); si no está -> NULL -> CRASH (14:55, ExecCommand(P2, 0x31)). Validar IDs antes de lanzar.
 
+## Entrada nativa P2 y cambio en vivo Goofy <-> Sora (v0.35-0.36)
+- Capa de entrada PC: gestor *0x14079cf00; InputUpdate 0x140105810 llena un puerto (dev+0x18+i*0x44) por GamePad
+  (0x1408bb2a8+i*0x140, usuario XInput +0x10; GamePadRead 0x140134d10(gp, puerto)) y mueve el primer puerto con
+  entrada al puerto 0. Puerto: +0 botones orden PS2, +2..+5 sticks, +0x1f estado (1 conectado, 2 no), +0x40 usuario.
+- Steam Input crea usuarios XInput virtuales duplicados dentro del juego (un mando = 2 usuarios, que pueden ir
+  desfasados unos frames). El reparto cambia entre arranques.
+- Unión P2: LB+RB 1 s. Usuarios de P2 en reposo para la capa (hook XInputGetState); puerto 1 <- GamePadRead del
+  mando P2. Vibración: el juego reescribe la vibración cada frame -> hook XInputSetState mientras dura la nuestra.
+- Objetos: grupo de aparición +0x9e8, entrada +0x9f0 (id +0, pos +4, rot +0x10). SpawnFromEntry 0x1403fe590(entry,
+  grupo); SpawnFromEntryAt 0x1403fe650(entry, grupo, pos). Destruir: tipo (handle en obj+0) vtable +0x38.
+- Cambio de Forma 0x14040d000 = plantilla: destruir, crear, mover referencias (0x1403bd2e0, 0x1403ab070,
+  0x1402c4480, 0x1403d06e0, 0x1403ac320, 0x1403e49b0, 0x14053dae0), re-enlazar tabla de grupo 0x1401b7f70.
+- Tabla de grupo 0x142a239b0[2] (amigos; índice en obj+0xdd0): el ctor de Friend 0x1403c2db0 toma el primer hueco
+  libre; el destroy de Friend (0x1403c3600) NO lo limpia (solo al cargar zona, 0x1403c3390).
+- Destroy de SORA 0x140404bb0: g_Sora=0; 0x1403a8f30: si g_Player!=0 -> g_Player=0, objetivo cámara=0,
+  0x142a10420=0, desmonta el controlador de jugador ÚNICO (obj+0xdc0 = 0x142a10620, 0x1403fd610) -> P1 sin control.
+  Fix: destruir el Sora P2 con g_Player=0 y restaurar g_Player/g_Sora.
+- Globales que el ctor de SORA enlaza: g_Player, g_Sora, 0x140718cb0, 0x140abcfe8 (tabla HUD [0]), 0x142a10420,
+  controlador 0x142a10620 +0xae0/+0xc20/+0xc38 (dueño). Se restauran por lista explícita (no diff de .data: el diff
+  restauró la cabeza de la lista de objetos 0x142a171c8 y colgó el juego).
+- HUD: GAUGE_PLAYER +0x40 = jugador; tabla 0x140abcfe8[i] (0 jugador, 1-2 amigos) limpiada por 0x140168970(i).
+
 ## Pendiente
 - [ ] Confirmar en vivo g_Player / g_Sora y la party (Donald/Goofy) en memoria
 - [ ] Qué backend usa el juego (DX11 o DX12) en tu PC

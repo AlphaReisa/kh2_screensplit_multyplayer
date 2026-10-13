@@ -7,7 +7,7 @@
 
 using namespace kc;
 
-#define KH2COOP_VERSION "0.35"
+#define KH2COOP_VERSION "0.36"
 
 using VoidFn = void (*)();
 static VoidFn o_RenderPrep;
@@ -46,7 +46,7 @@ extern "C" __declspec(dllexport) bool CoreInit(LogFn log) {
         MH_Uninitialize();
         return false;
     }
-    Log("listo. pantalla dividida: tecla %d, modo Sora P2: tecla %d", g_cfg.keySplit, g_cfg.keyCoopMode);
+    Log("listo. pantalla dividida: tecla %d, jugador 2 como Sora: %d", g_cfg.keySplit, g_cfg.secondSora);
     return true;
 }
 
