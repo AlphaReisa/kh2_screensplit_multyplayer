@@ -175,6 +175,17 @@ F1 modos de composición, F9 flush DMA manual, F10 activar/desactivar fix de ín
 - Estado que sobrevive a recargas del núcleo: bloque Persistent (dirección en la variable de entorno KH2COOP_STATE).
 - PENDIENTE: con Reflejo lanzado a la vez solo se ve una barrera.
 
+## Fusiones (v0.40, ver research/drive_forms.md)
+- P1 con Sora P2 presente: OK (StatusSlotFor oculta la ficha de P2 fuera del contexto de P2).
+- Sora P2: destroy propio (hook 0x140404bb0: UnbindP2, efecto +0xdf8, 0x1403d6770; no toca globales de P1), el
+  enlace de jugador 0x1403aa850 se salta para Soras de P2, ctor de forma de P2 detectado por retorno 0x14040d2b1 y
+  ctx 0x142ae9fa8[0] == Sora P2; P2 no absorbe compañeros (0x140400b20) ni tiene requisito (0x1404005e0).
+- BLOQUEADO: los indicadores Drive/forma se cargan del registro de partida de Sora (ficha +0x26c raíz,
+  0x1409abda0+0x1038..; +0x250 registro de personaje). La ficha propia de P2 no lo tiene (Drive 0/0) y las
+  escrituras de vuelta (0x1403c2120) mezclarían P1/P2. Además, en la fusión de P2 el gasto/arranque del indicador
+  acabó en la ficha de P1 (registro de StatusSlotFor pendiente de leer). Falta: datos de partida propios de P2.
+  Mientras, Drive/Revertir en gris para P2 (CmdUsable 0x140401d60).
+
 ## Pendiente
 - [ ] Confirmar en vivo g_Player / g_Sora y la party (Donald/Goofy) en memoria
 - [ ] Qué backend usa el juego (DX11 o DX12) en tu PC

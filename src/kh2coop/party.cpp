@@ -15,6 +15,7 @@
 // NOTE (roadmap step 3): the status slot still uses an unused-id trick; to be replaced by the pool API.
 #include "modules.h"
 #include "game.h"
+#include <intrin.h>
 
 using namespace kc;
 
@@ -78,7 +79,44 @@ static uint32_t h_PartySlotObjId(int slot) {
 // everything else gets player 1's (player 2's slot is hidden from the lookup). E.g. a Drive spends the gauge
 // and binds the new form Sora to the slot found here.
 
+static bool g_inP2FormCtor = false;   // constructing player 2's form Sora (Drive / Revert)
+static uintptr_t g_formP1;            // player 1 while that runs (the constructor sets g_Player to itself early)
+
+static uint32_t* StatusSlotForImpl(int charId);
 static uint32_t* h_StatusSlotFor(int charId) {
+    uint32_t* r = StatusSlotForImpl(charId);
+#ifdef KH2COOP_DEBUG
+    if (charId == 1 && P2Sora()) {
+        void* frames[8];
+        USHORT c = RtlCaptureStackBackTrace(1, 8, frames, nullptr);
+        uintptr_t st[3] = {};
+        for (USHORT i = 0, j = 0; i < c && j < 3; i++) {
+            uintptr_t f = (uintptr_t)frames[i];
+            if (f >= g_base && f < g_base + 0x2c00000) st[j++] = f;
+        }
+        static uintptr_t seen[64]; static int n;
+        uintptr_t key = st[0] ^ (st[1] << 1) ^ (uintptr_t)r;
+        bool known = false;
+        for (int i = 0; i < n; i++) known |= seen[i] == key;
+        if (!known && n < 64) {
+            seen[n++] = key;
+            Log("StatusSlotFor(1) -> %llx [%s%s] <- %llx <- %llx <- %llx", Rel((uintptr_t)r), InP2Update() ? "update P2" : "",
+                g_inP2FormCtor ? "ctor forma P2" : "", Rel(st[0]), Rel(st[1]), Rel(st[2]));
+        }
+    }
+#endif
+    return r;
+}
+
+static uint32_t* StatusSlotForImpl(int charId) {
+    if (g_inP2FormCtor) {   // the new form Sora takes player 2's slot (its drive / form gauges live there)
+        uint32_t* p1slot = g_formP1 ? Field<uint32_t*>(g_formP1, kh2::obj::Status) : nullptr;
+        if (!p1slot || (int)p1slot[0x98] != charId) return o_StatusSlotFor(charId);
+        p1slot[0x98] = 0xff;
+        uint32_t* r = o_StatusSlotFor(charId);
+        p1slot[0x98] = charId;
+        return r;
+    }
     if (!g_inP2Ctor) {
         uintptr_t p2 = (kh2::IsLiveSora(g_p2Sora) && g_p2Sora != kh2::Player()) ? g_p2Sora : 0;
         uint32_t* own = p2 ? Field<uint32_t*>(p2, kh2::obj::Status) : nullptr;
@@ -99,7 +137,37 @@ static uint32_t* h_StatusSlotFor(int charId) {
     return slot;
 }
 
+// Player 2's spawn data, kept from its last destroyed Sora (a form Sora is not spawned from an entry).
+static uintptr_t g_p2SpawnGroup, g_p2SpawnEntry;
+
+// Form change task 0x14040d000 builds the new form Sora here; the current form-change context
+// (0x142ae9fa8) holds the Sora being replaced in its first field.
+static const uintptr_t kFormCtorReturn = 0x14040d2b1;
+static const uintptr_t kFormContext = 0x142ae9fa8;
+
+static void* P2FormCtor(void* self, void* objentry, int form, uint64_t p4, void* pos, uint32_t yaw) {
+    uintptr_t player = kh2::Player(), sora = Global<uintptr_t>(kh2::SoraPtr);
+    g_formP1 = player;
+    g_inP2FormCtor = true;
+    void* r = o_SoraCtor(self, objentry, form, p4, pos, yaw);
+    g_inP2FormCtor = false;
+    Global<uintptr_t>(kh2::PlayerPtr) = player;
+    Global<uintptr_t>(kh2::SoraPtr) = sora;
+    RepairP1Pointers(player, (uintptr_t)self);
+    uintptr_t p2 = (uintptr_t)self;
+    Field<uintptr_t>(p2, 0x9e8) = g_p2SpawnGroup;   // so leaving can turn it back into Goofy
+    Field<uintptr_t>(p2, 0x9f0) = g_p2SpawnEntry;
+    g_p2Sora = p2;
+    cmdmenu::BindP2(p2);
+    Log("Sora P2 en forma %d: %llx", form, Rel(p2));
+    return r;
+}
+
 static void* h_SoraCtor(void* self, void* objentry, int form, uint64_t p4, void* pos, uint32_t yaw) {
+    uintptr_t formCtx = Global<uintptr_t>(kFormContext);
+    if ((uintptr_t)_ReturnAddress() == VA(kFormCtorReturn) && formCtx && g_p2Sora &&
+        Field<uintptr_t>(formCtx, 0) == g_p2Sora)
+        return P2FormCtor(self, objentry, form, p4, pos, yaw);
     uintptr_t player = kh2::Player();
     uintptr_t sora = Global<uintptr_t>(kh2::SoraPtr);
     // P2 only if a different, live Sora already exists (the real P1 is built first on area load)
@@ -144,6 +212,49 @@ static void h_ObjUpdate(intptr_t o) {
     if (p1) cmdmenu::SetInP1Update(false);
 }
 
+// SORA's destroy (type vtable +0x38 = 0x140404bb0) assumes it is the player: it clears g_Sora and, when
+// g_Player is set, 0x1403a8f30 tears down the player (g_Player, camera target, player control, the single
+// player command menu). For player 2's Sora: its own menu is unbound, its +0xdf8 effect killed (as
+// 0x1403a8f30 does) and the generic object destroy (0x1403d6770) runs; nothing of player 1's is touched.
+using SoraDestroyFn = void (*)(uintptr_t type, uintptr_t obj);
+static SoraDestroyFn o_SoraDestroy;
+static void h_SoraDestroy(uintptr_t type, uintptr_t obj) {
+    if (!obj || obj != g_p2Sora) { o_SoraDestroy(type, obj); return; }
+    g_p2SpawnGroup = Field<uintptr_t>(obj, 0x9e8);
+    g_p2SpawnEntry = Field<uintptr_t>(obj, 0x9f0);
+    cmdmenu::UnbindP2(obj);
+    if (uintptr_t fx = Field<uintptr_t>(obj, 0xdf8)) {
+        GameFn<void (*)(uintptr_t)>(0x1402be8a0)(fx);
+        Field<uintptr_t>(obj, 0xdf8) = 0;
+    }
+    GameFn<void (*)(uintptr_t)>(0x1403d6770)(obj);
+}
+
+// The SORA constructor binds every Sora it builds as the player (PlayerBind 0x1403aa850: camera target,
+// player-control pointer, the single command menu + HUD slot 0). Not for player 2's Soras: their own menu
+// is bound by cmdmenu::BindP2.
+using PlayerBindFn = void (*)(uintptr_t obj);
+static PlayerBindFn o_PlayerBind;
+static void h_PlayerBind(uintptr_t obj) {
+    if (g_inP2Ctor || g_inP2FormCtor) return;
+    o_PlayerBind(obj);
+}
+
+// Player 2's forms take no party members: Donald and Goofy are player 1's. DriveRequirement 0x1404005e0
+// (cmd; 0 = available) and AbsorbParty 0x140400b20(form) run from the commanding Sora's update.
+using DriveReqFn = int (*)(uintptr_t cmd);
+using AbsorbFn = void (*)(int form);
+static DriveReqFn o_DriveRequirement;
+static AbsorbFn o_AbsorbParty;
+static int h_DriveRequirement(uintptr_t cmd) {
+    if (InP2Update() && cmd && Field<uint16_t>(cmd, 2) == 4) return 0;
+    return o_DriveRequirement(cmd);
+}
+static void h_AbsorbParty(int form) {
+    if (InP2Update()) return;
+    o_AbsorbParty(form);
+}
+
 // ---------------------------------------------------------------- live swap Goofy <-> P2 Sora
 // The same steps as the Drive-form change (0x14040d000): the object's own destroy (type vtable +0x38),
 // a new object from the old one's spawn entry through its spawn group, then every engine reference moves
@@ -184,19 +295,10 @@ static void GoofyToSora(uintptr_t goofy) {
     Log("Goofy -> Sora P2 (%llx)", Rel(sora));
 }
 
-// Second Sora -> Goofy. SORA's destroy (0x140404bb0) clears g_Sora and, through 0x1403a8f30, tears down
-// "the player" when g_Player is set: g_Player, camera target, player-control pointer and the single player
-// controller (obj+0xdc0 = 0x142a10620, shared: the SORA constructor binds it to every Sora it builds).
-// The second Sora is not the player, so it is destroyed with g_Player unset (that branch then does not run)
-// and g_Player / g_Sora are put back afterwards.
+// Second Sora -> Goofy (its destroy goes through h_SoraDestroy).
 static void SoraToGoofy(uintptr_t sora) {
-    uintptr_t player = Global<uintptr_t>(kh2::PlayerPtr), p1Sora = Global<uintptr_t>(kh2::SoraPtr);
     g_coopMode = false;
-    cmdmenu::UnbindP2(sora);
-    Global<uintptr_t>(kh2::PlayerPtr) = 0;
-    DestroyObject(sora);
-    Global<uintptr_t>(kh2::PlayerPtr) = player;
-    Global<uintptr_t>(kh2::SoraPtr) = p1Sora;
+    DestroyObject(sora);   // player 2's destroy path (h_SoraDestroy)
     g_p2Sora = 0;
     uintptr_t goofy = SpawnLike(sora);
     if (!goofy) { Log("cambio Sora P2 -> Goofy: fallo al crear"); return; }
@@ -282,6 +384,12 @@ bool Install() {
     return Hook("PartySlotObjId", 0x1403c32e0, "40534883ec208bd9b9ffffffffe82efb", (void*)h_PartySlotObjId, (void**)&o_PartySlotObjId)
         && Hook("SoraCtor", 0x140405030, "48895c2408574883ec30f30f10442468", (void*)h_SoraCtor, (void**)&o_SoraCtor)
         && Hook("StatusSlotFor", 0x1403c04e0, "40574883ec208d41ff8bf983f80e0f87", (void*)h_StatusSlotFor, (void**)&o_StatusSlotFor)
+        && Hook("SoraDestroy", 0x140404bb0, "488bca48c7056a4e6e0200000000e96d", (void*)h_SoraDestroy, (void**)&o_SoraDestroy)
+        && Hook("PlayerBind", 0x1403aa850, "40534883ec208b15744f6602488bd985", (void*)h_PlayerBind, (void**)&o_PlayerBind)
+        && Hook("DriveRequirement", 0x1404005e0, "40535741564883ec300fb741026683f8", (void*)h_DriveRequirement, (void**)&o_DriveRequirement)
+        && Hook("AbsorbParty", 0x140400b20, "48895c24084889742410574883ec300f", (void*)h_AbsorbParty, (void**)&o_AbsorbParty)
+        && CheckBytes(0x1403d6770, "40554883ec208b8120010000488be9c1")    // generic object destroy
+        && CheckBytes(0x1402be8a0, "40534883ec2081490c01000100488bd9")    // effect kill
         && Hook("ObjUpdate", 0x1403bfd30, "40534883ec30488bd90f297424208b49", (void*)h_ObjUpdate, (void**)&o_ObjUpdate)
         && CheckBytes(0x1403d6fc0, "48895c2410574883ec3081a124010000")    // ExecCommand, called directly
         && CheckBytes(0x1403fe650, "48895c24084889742410574883ec20f3")    // SpawnFromEntryAt

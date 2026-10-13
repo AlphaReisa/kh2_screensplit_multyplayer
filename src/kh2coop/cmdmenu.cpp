@@ -22,9 +22,10 @@
 // when the HUD manager retires them, pushes the entry back onto the *current* pool's free list. Retiring
 // happens outside any player's context, so each entry is released in the context of the pool it lies in.
 //
-// Drive / Revert (command types 4 / 5) are not available to player 2 yet: the form change (task 0x14040d000)
-// is single-player throughout (current form 0x1409acdd4, global form locks, the new form Sora bound as the
-// player). CmdUsable (0x140401d60(cmd, owner)) reports them unusable (5) for player 2's Sora.
+// Drive / Revert (command types 4 / 5) are not available to player 2 yet: the drive and form gauges are loaded
+// from Sora's save record (status slot +0x26c root, +0x1038..), which player 2's own slot does not have, and
+// part of the form change still finds player 1's slot. CmdUsable (0x140401d60(cmd, owner)) reports them
+// unusable (5) for player 2's Sora until player 2 has save data of its own.
 //
 // "The player" for P2's own update and menu is P2: PartyMember(0) (0x1403d5c50, party member i: 0 = g_Player,
 // 1..2 = party slots), which the menu uses e.g. for "use item on self", answers the second Sora in P2's context;
