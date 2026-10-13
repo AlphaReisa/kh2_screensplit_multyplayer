@@ -17,6 +17,7 @@ bool Wanted();
 namespace input {
 struct P2State {
     float stickX = 0, stickY = 0;   // -1..1, y = forward
+    float camX = 0;                 // right stick / camera keys, -1..1 (positive = orbit right)
     bool  stickActive = false;
     WORD  buttons = 0;              // XInput layout: A 0x1000, B 0x2000, X 0x4000, Y 0x8000, Back 0x20
     WORD  pressed = 0;              // pressed on the last poll

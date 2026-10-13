@@ -34,7 +34,7 @@ void Frame() {
         HMODULE m = LoadLibraryA("xinput1_4.dll");
         g_xinput = m ? (XInputGetStateFn)GetProcAddress(m, "XInputGetState") : nullptr;
     }
-    float x = 0, y = 0;
+    float x = 0, y = 0, cx = 0;
     WORD buttons = 0;
     XPad pad{};
     if (g_xinput && g_xinput(1, &pad) == 0) {
@@ -42,8 +42,12 @@ void Frame() {
         y = pad.ly / 32767.0f;
         if (sqrtf(x * x + y * y) < 0.24f) x = y = 0;   // dead zone
         buttons = pad.buttons;
+        cx = pad.rx / 32767.0f;
+        if (fabsf(cx) < 0.24f) cx = 0;
     }
-    // keyboard stand-ins for pad 2: IJKL stick, U = A, O = B, P = X, Ñ = Y, F12 = Back
+    // keyboard stand-ins for pad 2: IJKL stick, N/M camera, U = A, O = B, P = X, Ñ = Y, F12 = Back
+    if (KeyDown('N')) cx -= 1;
+    if (KeyDown('M')) cx += 1;
     if (KeyDown('U')) buttons |= 0x1000;
     if (KeyDown('O')) buttons |= 0x2000;
     if (KeyDown('P')) buttons |= 0x4000;
@@ -56,6 +60,7 @@ void Frame() {
     float m = sqrtf(x * x + y * y);
     if (m > 1) { x /= m; y /= m; }
 
+    g_p2.camX = cx < -1 ? -1 : cx > 1 ? 1 : cx;
     g_p2.stickX = x;
     g_p2.stickY = y;
     g_p2.stickActive = m > 0.01f;

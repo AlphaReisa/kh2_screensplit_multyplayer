@@ -62,20 +62,47 @@ static void UnshiftProjection(int idx) {
     m.valid = false;
 }
 
-// ---------------------------------------------------------------- camera 1
-// Camera 1 = camera 0 translated by (P2 - P1). Eye at +0x48, target at +0x58.
+// ---------------------------------------------------------------- camera 1 (player 2)
+// An independent orbit camera around player 2. From the game camera (slot 0) it only borrows the framing:
+// distance, pitch and target height above the player. Its yaw is its own, turned by player 2's right
+// stick, so moving player 1 (which turns the game camera) no longer drags camera 2 around.
+// Slot layout: +0x48 eye, +0x58 target (vec4); the commit rebuilds the view matrix from them.
+static bool  g_cam2Init = false;
+static float g_cam2Yaw = 0;            // radians, direction from target to eye in the XZ plane
+static float g_cam2Target[3];          // smoothed target position
+
 static void UpdateP2Camera() {
     uintptr_t p1 = kh2::Player();
     uintptr_t p2 = party::P2Sora() ? party::P2Sora() : friendctl::Goofy();
     if (!p1 || !p2) return;
     uint8_t* c0 = reinterpret_cast<uint8_t*>(VA(kh2::CamBank));
     uint8_t* c1 = c0 + 0x80;
-    memcpy(c1, c0, 0x80);
-    const float* a = kh2::Pos(p1);
-    const float* b = kh2::Pos(p2);
+    const float* eye0 = reinterpret_cast<const float*>(c0 + 0x48);
+    const float* tgt0 = reinterpret_cast<const float*>(c0 + 0x58);
+    const float* pos1 = kh2::Pos(p1);
+    const float* pos2 = kh2::Pos(p2);
+
+    // framing of the game camera
+    float off[3] = {eye0[0] - tgt0[0], eye0[1] - tgt0[1], eye0[2] - tgt0[2]};
+    float flat = sqrtf(off[0] * off[0] + off[2] * off[2]);
+    float height = tgt0[1] - pos1[1];   // target height relative to the player (engine Y points down)
+
+    float want[3] = {pos2[0], pos2[1] + height, pos2[2]};
+    if (!g_cam2Init) {
+        g_cam2Yaw = atan2f(off[0], off[2]);
+        memcpy(g_cam2Target, want, sizeof(want));
+        g_cam2Init = true;
+    }
+    g_cam2Yaw += input::P2().camX * 0.045f;   // ~2.7 rad/s at full deflection
+    for (int i = 0; i < 3; i++) g_cam2Target[i] += (want[i] - g_cam2Target[i]) * 0.25f;   // light smoothing
+
+    memcpy(c1, c0, 0x80);   // keep the game camera's other parameters (fov, up vector, roll)
     float* eye = reinterpret_cast<float*>(c1 + 0x48);
     float* tgt = reinterpret_cast<float*>(c1 + 0x58);
-    for (int i = 0; i < 3; i++) { eye[i] += b[i] - a[i]; tgt[i] += b[i] - a[i]; }
+    for (int i = 0; i < 3; i++) tgt[i] = g_cam2Target[i];
+    eye[0] = tgt[0] + sinf(g_cam2Yaw) * flat;
+    eye[1] = tgt[1] + off[1];
+    eye[2] = tgt[2] + cosf(g_cam2Yaw) * flat;
 }
 
 // ---------------------------------------------------------------- hooks
@@ -167,6 +194,7 @@ void Frame() {
     }
     if (g_wanted && !g_running) {
         g_startFrame = g_frame;
+        g_cam2Init = false;   // camera 2 starts from the game camera's current yaw
         g_running = true;
         GameFn<void (*)(float)>(0x140163440)(10000.0f);   // very long crossfade = dual camera stays on
     }
