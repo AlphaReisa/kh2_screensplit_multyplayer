@@ -73,8 +73,22 @@ static uint32_t h_PartySlotObjId(int slot) {
 
 // Status slot pool: 80 x 0x278 at 0x142a17290. Slot fields: +0x250 handle of the character's save data,
 // +0x260 character id, +0x264 refcount, +0x268 owner handle.
+// Outside the constructor, StatusSlotFor(charId) returns the first slot in pool order with that character id,
+// which with two Soras can be player 2's. Player 2's own code (its object update) gets player 2's slot;
+// everything else gets player 1's (player 2's slot is hidden from the lookup). E.g. a Drive spends the gauge
+// and binds the new form Sora to the slot found here.
+
 static uint32_t* h_StatusSlotFor(int charId) {
-    if (!g_inP2Ctor) return o_StatusSlotFor(charId);
+    if (!g_inP2Ctor) {
+        uintptr_t p2 = (kh2::IsLiveSora(g_p2Sora) && g_p2Sora != kh2::Player()) ? g_p2Sora : 0;
+        uint32_t* own = p2 ? Field<uint32_t*>(p2, kh2::obj::Status) : nullptr;
+        if (!own || (int)own[0x98] != charId) return o_StatusSlotFor(charId);
+        if (InP2Update()) return own;
+        own[0x98] = 0xff;   // not a character id: skipped by the search
+        uint32_t* r = o_StatusSlotFor(charId);
+        own[0x98] = charId;
+        return r;
+    }
     uint32_t* slot = o_StatusSlotFor(15);   // id 15: valid range, unused -> forces a fresh slot
     if (slot && slot[0x98] == 15) {
         slot[0x98] = charId;
