@@ -72,6 +72,28 @@ static uint32_t h_PartySlotObjId(int slot) {
     return soraId;
 }
 
+// ---------------------------------------------------------------- player 2's save data
+// A status slot is loaded from (0x1403c1d90) and written back to (0x1403c2120) the character's save record
+// (slot +0x250: save 0x1409abda0 + (idx-1)*0x114 via 0x1403a14e0) and, for Sora, the save root (slot +0x26c:
+// drive / form gauges at +0x1038..+0x1043). Both are Sora's own: a slot for player 2 bound to them would mix
+// HP / MP / Drive with player 1's on every load and write-back. Player 2's slot is bound to player 2's own
+// copies instead, made from Sora's the first time (they live in the process-persistent block; the engine's
+// handle codec registers that memory region by itself).
+static const uintptr_t kSaveRoot = 0x1409abda0;
+
+static void BindP2SaveData(uint32_t* slot, int charId) {
+    Persistent& ps = Persist();
+    if (!ps.p2SaveReady) {
+        void* record = GameFn<void* (*)(void*, int)>(0x1403a14e0)(reinterpret_cast<void*>(VA(kSaveRoot)), charId);
+        if (record) memcpy(ps.p2Record, record, 0x114);
+        memcpy(ps.p2Root, reinterpret_cast<void*>(VA(kSaveRoot)), sizeof(ps.p2Root));
+        ps.p2SaveReady = true;
+        Log("datos de partida propios del jugador 2 creados");
+    }
+    slot[0x94] = kh2::PtrToHandle(ps.p2Record);   // +0x250
+    slot[0x9b] = kh2::PtrToHandle(ps.p2Root);     // +0x26c
+}
+
 // Status slot pool: 80 x 0x278 at 0x142a17290. Slot fields: +0x250 handle of the character's save data,
 // +0x260 character id, +0x264 refcount, +0x268 owner handle.
 // Outside the constructor, StatusSlotFor(charId) returns the first slot in pool order with that character id,
@@ -108,30 +130,32 @@ static uint32_t* h_StatusSlotFor(int charId) {
     return r;
 }
 
+// The game's lookup also keeps the slot's reference count, so it always runs; the other player's slot is
+// hidden from it (relabelled to a non-character id for the call).
+static uint32_t* LookupHiding(uint32_t* hidden, int charId) {
+    if (!hidden || (int)hidden[0x98] != charId) return o_StatusSlotFor(charId);
+    hidden[0x98] = 0xff;
+    uint32_t* r = o_StatusSlotFor(charId);
+    hidden[0x98] = charId;
+    return r;
+}
+
 static uint32_t* StatusSlotForImpl(int charId) {
-    if (g_inP2FormCtor) {   // the new form Sora takes player 2's slot (its drive / form gauges live there)
-        uint32_t* p1slot = g_formP1 ? Field<uint32_t*>(g_formP1, kh2::obj::Status) : nullptr;
-        if (!p1slot || (int)p1slot[0x98] != charId) return o_StatusSlotFor(charId);
-        p1slot[0x98] = 0xff;
-        uint32_t* r = o_StatusSlotFor(charId);
-        p1slot[0x98] = charId;
-        return r;
-    }
+    if (g_inP2FormCtor)   // the new form Sora takes player 2's slot (its drive / form gauges live there)
+        return LookupHiding(g_formP1 ? Field<uint32_t*>(g_formP1, kh2::obj::Status) : nullptr, charId);
     if (!g_inP2Ctor) {
         uintptr_t p2 = (kh2::IsLiveSora(g_p2Sora) && g_p2Sora != kh2::Player()) ? g_p2Sora : 0;
-        uint32_t* own = p2 ? Field<uint32_t*>(p2, kh2::obj::Status) : nullptr;
-        if (!own || (int)own[0x98] != charId) return o_StatusSlotFor(charId);
-        if (InP2Update()) return own;
-        own[0x98] = 0xff;   // not a character id: skipped by the search
-        uint32_t* r = o_StatusSlotFor(charId);
-        own[0x98] = charId;
-        return r;
+        if (!p2) return o_StatusSlotFor(charId);
+        if (InP2Update()) {
+            uintptr_t p1 = kh2::Player();
+            return LookupHiding(p1 ? Field<uint32_t*>(p1, kh2::obj::Status) : nullptr, charId);
+        }
+        return LookupHiding(Field<uint32_t*>(p2, kh2::obj::Status), charId);
     }
     uint32_t* slot = o_StatusSlotFor(15);   // id 15: valid range, unused -> forces a fresh slot
     if (slot && slot[0x98] == 15) {
         slot[0x98] = charId;
-        void* data = GameFn<void* (*)(void*, int)>(0x1403a14e0)(reinterpret_cast<void*>(VA(0x1409abda0)), charId);
-        slot[0x94] = kh2::PtrToHandle(data);
+        BindP2SaveData(slot, charId);
         Log("ficha de batalla propia para Sora P2: %llx", Rel((uintptr_t)slot));
     }
     return slot;

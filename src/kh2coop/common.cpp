@@ -68,7 +68,7 @@ Persistent& Persist() {
     if (GetEnvironmentVariableA("KH2COOP_STATE", buf, sizeof(buf)))
         p = reinterpret_cast<Persistent*>(_strtoui64(buf, nullptr, 16));
     if (!p) {
-        p = static_cast<Persistent*>(VirtualAlloc(nullptr, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+        p = static_cast<Persistent*>(VirtualAlloc(nullptr, 0x4000, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
         sprintf_s(buf, "%llx", (unsigned long long)p);
         SetEnvironmentVariableA("KH2COOP_STATE", buf);
     }

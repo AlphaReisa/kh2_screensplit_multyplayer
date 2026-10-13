@@ -8,6 +8,14 @@
 // Player 2 gets a second GAUGE_PLAYER built the same way, alongside the game's own, for the HUD's lifetime.
 // The SORA constructor also re-binds the game's gauge to the Sora it builds: kept on P1.
 //
+// Notifications: HUD slots 0x140abcfe8[3] (0 = player, 1-2 = friends) each have a flags word (0x140abd000[i]);
+// game code raises bits on an object's slot (found by object: HudNotify* 0x140168930 / 0x1401688f0 /
+// 0x1401688b0 / 0x140168870 = bits 1..4; HudSetSlot 0x140168850 = bit 0, rebind) and each gauge polls the
+// flags of its index (+0x34 + +0x38) in 0x14017ee60 (HudFlagTest 0x1401687f0 / HudFlagClear 0x140168ae0) and
+// runs its vtable handlers. Player 2's gauge listens on an index of its own (kP2HudIndex, outside the table):
+// notifications for the second Sora are kept in g_p2Flags, and player 1's index-0 flags stay player 1's.
+// Bit 0's handler rebinds to slot 0's object, so player 2's rebind is done here and announced with bits 1..4.
+//
 // Placement: a HUD sprite (dk::Sprite, update 0x14016abf0) is drawn at its layout position + its own
 // offset (+0x1c8) + its inherited offset (+0x1c0, rebuilt from the parent +0x1e0 each update; left alone
 // when there is no parent). Every gauge piece hangs from the gauge's root sprite (gauge+0x1d40), and the HP
@@ -31,6 +39,10 @@ static const size_t kRootSprite = 0x1d40;
 static const int kHalfScreen = 341;   // HUD units at 16:9
 
 static uintptr_t g_gauge2;   // player 2's GAUGE_PLAYER (0 when the HUD does not exist)
+static const int kP2HudIndex = 0x40;
+static volatile uint32_t g_p2Flags;
+
+static void UseP2Index(uintptr_t gauge) { Field<int32_t>(gauge, 0x38) = kP2HudIndex - Field<int32_t>(gauge, 0x34); }
 
 static void SetGaugeOffsetX(uintptr_t gauge, int x) { Field<int32_t>(gauge, kRootSprite + 0x1c0) = x; }
 
@@ -48,6 +60,8 @@ static void CreateGauge2(uintptr_t p2) {
     memset(mem, 0, kGaugeSize);
     uintptr_t g = GameFn<uintptr_t (*)(void*)>(0x14016b6f0)(mem);
     GameFn<void (*)(uintptr_t, uintptr_t)>(0x14017f270)(g, p2);
+    UseP2Index(g);
+    g_p2Flags = 0x1e;
     g_gauge2 = g;
     Log("HUD P2: indicador creado en %llx", Rel(g));
 }
@@ -65,6 +79,26 @@ static uintptr_t FindGauge2() {
 // ---------------------------------------------------------------- hooks
 using VoidFn = void (*)();
 using TaskFn = void (*)(intptr_t task);
+using FlagTestFn = uint32_t (*)(int index, uint32_t bit);
+using FlagClearFn = void (*)(int index, uint32_t bit);
+using NotifyFn = void (*)(uintptr_t obj);
+static FlagTestFn o_FlagTest;
+static FlagClearFn o_FlagClear;
+static NotifyFn o_Notify[4];
+static const uintptr_t kNotify[4] = {0x140168930, 0x1401688f0, 0x1401688b0, 0x140168870};   // bits 1..4
+
+static uint32_t h_FlagTest(int index, uint32_t bit) {
+    if (index == kP2HudIndex) return (g_p2Flags >> (bit & 31)) & 1;
+    return o_FlagTest(index, bit);
+}
+static void h_FlagClear(int index, uint32_t bit) {
+    if (index == kP2HudIndex) { g_p2Flags &= ~(1u << (bit & 31)); return; }
+    o_FlagClear(index, bit);
+}
+template <int I> static void h_Notify(uintptr_t obj) {
+    if (obj && obj == party::P2Sora()) { g_p2Flags |= 2u << I; return; }
+    o_Notify[I](obj);
+}
 static VoidFn o_HudCreate, o_HudDestroy;
 static TaskFn o_Hud2DTask;
 
@@ -118,7 +152,10 @@ void Frame() {
     if (!gauge1) { g_gauge2 = 0; return; }   // no battle HUD
     SetGaugeOffsetX(gauge1, split::Running() ? -kHalfScreen : 0);
     static bool searched = false;
-    if (!g_gauge2 && !searched) { searched = true; g_gauge2 = FindGauge2(); }
+    if (!g_gauge2 && !searched) {
+        searched = true;
+        if ((g_gauge2 = FindGauge2())) UseP2Index(g_gauge2);
+    }
     uintptr_t p2 = party::P2Sora();
     if (!g_gauge2) {
         if (p2) CreateGauge2(p2);
@@ -128,7 +165,11 @@ void Frame() {
     uintptr_t& bound = Field<uintptr_t>(g_gauge2, 0x40);
     if (bound != p2) {   // bind / unbind player 2 (no player: the gauge does not update or draw)
         bound = p2;
-        if (p2) Field<int32_t>(g_gauge2, 0x2c) = Field<int32_t>(g_gauge2, 0x30) = *Field<int32_t*>(p2, kh2::obj::Status);
+        if (p2) {
+            Field<int32_t>(g_gauge2, 0x2c) = Field<int32_t>(g_gauge2, 0x30) = *Field<int32_t*>(p2, kh2::obj::Status);
+            Field<uint64_t>(g_gauge2, 0x45d4) = 0xffff;   // cached drive bars / form level (as Init leaves them)
+            g_p2Flags |= 0x1e;                            // everything changed
+        }
     }
 }
 
@@ -139,6 +180,12 @@ void Shutdown() {
 
 bool Install() {
     return Hook("Hud2DTask", 0x1401667d0, "48895c2408574883ec20488b5920488b", (void*)h_Hud2DTask, (void**)&o_Hud2DTask)
+        && Hook("HudFlagTest", 0x1401687f0, "4863c1448bca448bc24183e11f49c1e8", (void*)h_FlagTest, (void**)&o_FlagTest)
+        && Hook("HudFlagClear", 0x140168ae0, "4863c14c8d0d16459500448bc283e21f", (void*)h_FlagClear, (void**)&o_FlagClear)
+        && Hook("HudNotify1", kNotify[0], "4c8d0db146950033d2498bc14c8d05bd", (void*)h_Notify<0>, (void**)&o_Notify[0])
+        && Hook("HudNotify2", kNotify[1], "4c8d0df146950033d2498bc14c8d05fd", (void*)h_Notify<1>, (void**)&o_Notify[1])
+        && Hook("HudNotify3", kNotify[2], "4c8d0d3147950033d2498bc14c8d053d", (void*)h_Notify<2>, (void**)&o_Notify[2])
+        && Hook("HudNotify4", kNotify[3], "4c8d0d7147950033d2498bc14c8d057d", (void*)h_Notify<3>, (void**)&o_Notify[3])
         && Hook("HudCreate", 0x14016c3a0, "48895c241848897c242041564883ec20", (void*)h_HudCreate, (void**)&o_HudCreate)
         && Hook("HudDestroy", 0x14016c2b0, "40534883ec20488b0da30f950033db48", (void*)h_HudDestroy, (void**)&o_HudDestroy)
         && CheckBytes(0x14016b6f0, "48895c240848896c2410488974241848")    // GAUGE_PLAYER constructor

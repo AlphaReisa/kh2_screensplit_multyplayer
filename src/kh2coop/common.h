@@ -50,6 +50,10 @@ void LoadConfig();
 struct Persistent {
     void* cmdMenu;               // cmdmenu.cpp: player 2's FIELD_COMMAND + HUD context block
     uintptr_t magicContainers[6];  // magic.cpp: player 2's effect containers (game heap)
+    // party.cpp: player 2's own save data, standing in for Sora's in player 2's status slot
+    bool p2SaveReady;
+    alignas(16) uint8_t p2Record[0x120];   // character record (0x114 bytes, as save + (idx-1) * 0x114)
+    alignas(16) uint8_t p2Root[0x1050];    // save root, up to and including the drive block (+0x1038..+0x1043)
 };
 Persistent& Persist();
 

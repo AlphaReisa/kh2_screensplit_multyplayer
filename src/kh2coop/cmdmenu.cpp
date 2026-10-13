@@ -22,11 +22,6 @@
 // when the HUD manager retires them, pushes the entry back onto the *current* pool's free list. Retiring
 // happens outside any player's context, so each entry is released in the context of the pool it lies in.
 //
-// Drive / Revert (command types 4 / 5) are not available to player 2 yet: the drive and form gauges are loaded
-// from Sora's save record (status slot +0x26c root, +0x1038..), which player 2's own slot does not have, and
-// part of the form change still finds player 1's slot. CmdUsable (0x140401d60(cmd, owner)) reports them
-// unusable (5) for player 2's Sora until player 2 has save data of its own.
-//
 // "The player" for P2's own update and menu is P2: PartyMember(0) (0x1403d5c50, party member i: 0 = g_Player,
 // 1..2 = party slots), which the menu uses e.g. for "use item on self", answers the second Sora in P2's context;
 // so does PartyMemberById (0x1403d5c70, the party member with a character id, g_Player first): item targets are
@@ -147,7 +142,6 @@ using GroupFn = void (*)(int group);
 using VoidFn = void (*)();
 using SetPosFn = void (*)(uintptr_t sprite, int x, int y);
 using PartyMemberFn = uintptr_t (*)(int i);
-using CmdUsableFn = uintptr_t (*)(uintptr_t cmd, uintptr_t owner);
 using EntryReleaseFn = void (*)(uintptr_t entry);
 using PartyMemberByIdFn = uintptr_t (*)(int charId);
 static RegisterFn o_Register;
@@ -155,7 +149,6 @@ static GroupFn o_Show, o_Hide, o_Resume, o_Pause, o_Kill;
 static VoidFn o_DrawTeardown;
 static SetPosFn o_SetPos;
 static PartyMemberFn o_PartyMember;
-static CmdUsableFn o_CmdUsable;
 static EntryReleaseFn o_EntryRelease;
 static PartyMemberByIdFn o_PartyMemberById;
 
@@ -241,12 +234,6 @@ static void h_EntryRelease(uintptr_t entry) {
 }
 
 // A HUD object of P2's menu (registered in P2's groups): its 2D task runs in P2's context (hud.cpp).
-static uintptr_t h_CmdUsable(uintptr_t cmd, uintptr_t owner) {
-    uint16_t type = cmd ? Field<uint16_t>(cmd, 2) : 0;
-    if (owner && owner == party::P2Sora() && (type == 4 || type == 5)) return 5;
-    return o_CmdUsable(cmd, owner);
-}
-
 static uintptr_t h_PartyMemberById(int charId) {
     if (g_context)
         if (uintptr_t p2 = party::P2Sora())
@@ -284,7 +271,6 @@ bool Install() {
         && Hook("HudGroupKill", 0x140166f30, "48895c2408574883ec208bf933db6690", (void*)h_Kill, (void**)&o_Kill)
         && Hook("CmdDrawTeardown", 0x14015c090, "4883ec3848896c244848897424504c89", (void*)h_DrawTeardown, (void**)&o_DrawTeardown)
         && Hook("CmdEntryRelease", 0x14015b420, "4c8b05c910960048b8793f729aafd5b3", (void*)h_EntryRelease, (void**)&o_EntryRelease)
-        && Hook("CmdUsable", 0x140401d60, "48895c240848896c2410488974241848", (void*)h_CmdUsable, (void**)&o_CmdUsable)
         && Hook("PartyMember", 0x1403d5c50, "85c97508488b0575a96302c3ffc9e90d", (void*)h_PartyMember, (void**)&o_PartyMember)
         && Hook("PartyMemberById", 0x1403d5c70, "48895c24084889742410574883ec208b", (void*)h_PartyMemberById, (void**)&o_PartyMemberById)
         && Hook("SpriteSetPos", 0x14016b330, "8991c0010000448981c4010000c3cccc", (void*)h_SetPos, (void**)&o_SetPos)

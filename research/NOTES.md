@@ -180,7 +180,13 @@ F1 modos de composición, F9 flush DMA manual, F10 activar/desactivar fix de ín
 - Sora P2: destroy propio (hook 0x140404bb0: UnbindP2, efecto +0xdf8, 0x1403d6770; no toca globales de P1), el
   enlace de jugador 0x1403aa850 se salta para Soras de P2, ctor de forma de P2 detectado por retorno 0x14040d2b1 y
   ctx 0x142ae9fa8[0] == Sora P2; P2 no absorbe compañeros (0x140400b20) ni tiene requisito (0x1404005e0).
-- BLOQUEADO: los indicadores Drive/forma se cargan del registro de partida de Sora (ficha +0x26c raíz,
+- v0.41: P2 tiene datos de partida propios (copias del registro de personaje 0x114 B y de la raíz hasta +0x1043 en el
+  bloque persistente; ficha +0x250 / +0x26c apuntan a ellas; el codificador de handles registra regiones nuevas solo).
+  StatusSlotFor siempre corre el original (lleva el refcount +0x264) ocultando la ficha del otro jugador.
+  HUD: avisos por objeto (0x140168930/8f0/8b0/870 = bits 1..4, tabla 0x140abcfe8 + flags 0x140abd000); el indicador
+  de P2 escucha el índice 0x40 (flags propios) y su reenganche se hace en hud.cpp (el handler bit0 usa el hueco 0).
+- PENDIENTE: cambio de zona con P2 en forma (byte de forma 0x1409acdd4 global -> P1 aparecería en esa forma).
+- (histórico) BLOQUEADO: los indicadores Drive/forma se cargan del registro de partida de Sora (ficha +0x26c raíz,
   0x1409abda0+0x1038..; +0x250 registro de personaje). La ficha propia de P2 no lo tiene (Drive 0/0) y las
   escrituras de vuelta (0x1403c2120) mezclarían P1/P2. Además, en la fusión de P2 el gasto/arranque del indicador
   acabó en la ficha de P1 (registro de StatusSlotFor pendiente de leer). Falta: datos de partida propios de P2.
