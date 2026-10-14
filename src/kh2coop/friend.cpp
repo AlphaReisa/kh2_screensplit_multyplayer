@@ -111,9 +111,10 @@ void Frame() {
         g_pending = 0;
         return;
     }
-    bool want = input::Joined();   // player 2 joined (LB + RB) -> Goofy is theirs
+    // Only when player 2 plays Goofy instead of a second Sora (second_sora = 0).
+    bool want = input::Joined() && !g_cfg.secondSora;   // player 2 joined (LB + RB) -> Goofy is theirs
 #ifdef KH2COOP_DEBUG
-    want = want || p2.stickActive || g_controlled;   // keyboard stand-ins take Goofy too
+    want = want || (!g_cfg.secondSora && (p2.stickActive || g_controlled));   // keyboard stand-ins take Goofy too
 #endif
     if (want != g_controlled) {
         g_controlled = want;

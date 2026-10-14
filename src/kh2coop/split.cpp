@@ -13,7 +13,9 @@ using namespace kc;
 
 namespace split {
 
-static volatile bool g_wanted = false;
+static volatile bool g_wanted = false;   // split screen asked for (player 2 joined, or F8)
+static volatile bool g_active = false;   // ...and there is someone for camera 2 to follow (not in cutscenes, where
+                                         // the party is not spawned)
 static bool g_running = false;
 static bool g_inComposite = false;
 static int  g_lastPassIdx = 0;
@@ -167,7 +169,7 @@ static void h_CrossfadeTick(intptr_t task) {
     float* remaining = reinterpret_cast<float*>(task + 0x18);
     float* total = reinterpret_cast<float*>(task + 0x20);
     if (g_running) {
-        if (g_wanted) *remaining = *total;
+        if (g_active) *remaining = *total;
         else { *remaining = 0.0f; g_running = false; Log("split terminado"); }
     }
     o_CrossfadeTick(task);
@@ -175,7 +177,7 @@ static void h_CrossfadeTick(intptr_t task) {
 
 // Composite draws the captured pass (camera 0) as a full-screen sprite over the camera-1 pass.
 static void h_Composite() {
-    g_inComposite = g_running && g_wanted;
+    g_inComposite = g_running && g_active;
     o_Composite();
     g_inComposite = false;
     if (g_running) Global<int32_t>(kh2::CamIndex) = 0;   // game logic keeps writing camera slot 0
@@ -208,7 +210,7 @@ static void h_CamCommit() {
     }
     if (idx != 0 && idx != 1) return;
     g_lastPassIdx = idx;
-    if (g_running && g_wanted) ShiftProjection(idx, idx == 0 ? -0.5f : 0.5f);   // P1 left, P2 right
+    if (g_running && g_active) ShiftProjection(idx, idx == 0 ? -0.5f : 0.5f);   // P1 left, P2 right
     else UnshiftProjection(idx);
 }
 
@@ -247,9 +249,11 @@ void Frame() {
         g_running = false;
         UnshiftProjection(0);
         UnshiftProjection(1);
-        Log("tarea de doble camara perdida%s", g_wanted ? ", reiniciando" : "");
+        Log("tarea de doble camara perdida%s", g_active ? ", reiniciando" : "");
     }
-    if (g_wanted && !g_running) {
+    bool target = party::P2Sora() || (!g_cfg.secondSora && friendctl::Goofy());
+    g_active = g_wanted && target;
+    if (g_active && !g_running) {
         g_startFrame = g_frame;
         g_cam2Init = false;   // camera 2 starts from the game camera's current yaw
         g_cam2SlotValid = false;
@@ -260,6 +264,7 @@ void Frame() {
 
 void Shutdown() {
     g_wanted = false;   // the crossfade tick ends the mode on the game thread
+    g_active = false;
     for (int i = 0; i < 100 && g_running; i++) Sleep(10);
 }
 

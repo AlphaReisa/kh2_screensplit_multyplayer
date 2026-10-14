@@ -105,8 +105,28 @@ static void BindP2SaveData(uint32_t* slot, int charId) {
         ps.p2SaveReady = true;
         Log("datos de partida propios del jugador 2 creados");
     }
+    // Knocked out when its last slot was written back: like the party members, player 2 is back on its feet in
+    // the next zone (record +4 HP, +5 max HP).
+    if (ps.p2Record[4] == 0) ps.p2Record[4] = ps.p2Record[5];
     slot[0x94] = kh2::PtrToHandle(ps.p2Record);   // +0x250
     slot[0x9b] = kh2::PtrToHandle(ps.p2Root);     // +0x26c
+}
+
+static bool IsP2Slot(const uint8_t* slot) {
+    Persistent& ps = Persist();
+    return ps.p2SaveReady && kh2::HandleToPtr(*reinterpret_cast<const uint32_t*>(slot + 0x26c)) ==
+                                 reinterpret_cast<uintptr_t>(ps.p2Root);
+}
+
+// SlotWriteBack (0x1403c2120) also copies the slot's +8 into a per-zone global (0x142a23960, reset on zone load
+// by 0x1403c0840, read back into new slots): player 1's. Player 2's write-backs leave it alone.
+using SlotWriteBackFn = void (*)(uint8_t* slot);
+static SlotWriteBackFn o_SlotWriteBack;
+static void h_SlotWriteBack(uint8_t* slot) {
+    if (!slot || !IsP2Slot(slot)) { o_SlotWriteBack(slot); return; }
+    uint32_t saved = Global<uint32_t>(0x142a23960);
+    o_SlotWriteBack(slot);
+    Global<uint32_t>(0x142a23960) = saved;
 }
 
 // Status slot pool: 80 x 0x278 at 0x142a17290. Slot fields: +0x250 handle of the character's save data,
@@ -352,10 +372,14 @@ static uintptr_t SpawnPartySlotAt(const float* where, float yaw) {
     return GameFn<uintptr_t (*)(uint32_t, float*, float)>(0x1403df930)(kPartySlot1Id, pos, yaw);
 }
 
+// The replacement always comes through Goofy's party slot (pseudo id 0x237), which resolves to the second Sora
+// or to the slot's member: some areas list the member under its own id, and respawning that entry would just
+// bring the member back. The area's entry is used when it is the slot's (it keeps the object tied to it).
 static uintptr_t SpawnLike(uintptr_t old) {
     uintptr_t group = Field<uintptr_t>(old, 0x9e8);
     void* entry = Field<void*>(old, 0x9f0);
-    if (!group || !entry) return SpawnPartySlotAt(kh2::Pos(old), Field<float>(old, kh2::obj::Yaw));
+    if (!group || !entry || (*static_cast<uint32_t*>(entry) & 0xfffffff) != kPartySlot1Id)
+        return SpawnPartySlotAt(kh2::Pos(old), Field<float>(old, kh2::obj::Yaw));
     float pos[4] = {kh2::Pos(old)[0], kh2::Pos(old)[1], kh2::Pos(old)[2], 0};   // where the old one stands
     return GameFn<uintptr_t (*)(void*, uintptr_t, float*)>(0x1403fe650)(entry, group, pos);
 }
@@ -545,6 +569,7 @@ bool Install() {
         && CheckBytes(0x1403ba720, "40534883ec20488bd9e84254000084c0")    // object alive
         && CheckBytes(0x1403c38f0, "40534883ec20488bd9e85200000084c0")    // member able
         && CheckBytes(0x1402be8a0, "40534883ec2081490c01000100488bd9")    // effect kill
+        && Hook("SlotWriteBack", 0x1403c2120, "40534883ec20488bd98b8950020000e8", (void*)h_SlotWriteBack, (void**)&o_SlotWriteBack)
         && Hook("ObjUpdate", 0x1403bfd30, "40534883ec30488bd90f297424208b49", (void*)h_ObjUpdate, (void**)&o_ObjUpdate)
         && CheckBytes(0x1403d6fc0, "48895c2410574883ec3081a124010000")    // ExecCommand, called directly
         && CheckBytes(0x1403fe650, "48895c24084889742410574883ec20f3")    // SpawnFromEntryAt
