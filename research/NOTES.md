@@ -211,6 +211,12 @@ F1 modos de composición, F9 flush DMA manual, F10 activar/desactivar fix de ín
 - Las teclas del mod solo cuentan con la ventana del juego activa (antes, escribir en otra ventana activaba el
   control de Goofy por teclado de la build debug y su ataque directo -> cierre en 0x1401b0420).
 
+- PENDIENTE (v0.45): en peleas de guion con cámara especial (p. ej. azotea de Villa Crepúsculo con contador "UT") el
+  juego cancela una y otra vez el fundido de doble cámara (0x140abcca0 = 0 cada pocos s) -> sin pantalla dividida;
+  al volver a explorar se recupera. El Sora P2 aparece en su punto de aparición, que puede estar lejos de P1.
+- PENDIENTE: revivir al Sora P2 dentro de la zona (KO); hoy vuelve con la vida llena al cambiar de zona.
+- PENDIENTE: "cruz" (postura en T) del Sora P2 vista en un combate (animación sin cargar?).
+
 ## Pendiente
 - [ ] Confirmar en vivo g_Player / g_Sora y la party (Donald/Goofy) en memoria
 - [ ] Qué backend usa el juego (DX11 o DX12) en tu PC
