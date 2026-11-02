@@ -4,6 +4,12 @@
 Player 2 joins with a second controller and plays a **second Sora** — a real Sora built by the game itself,
 with their own camera, HP/MP gauge, command menu, magic, items and Drive Forms.
 
+![Split screen: player 1 with Goofy on the left, player 2's Sora in Valor Form on the right](docs/images/split-screen.jpg)
+
+*Kingdom Hearts has been one of my favourite series for years, and I always wished I could play KH2 side by
+side with a friend — two Keyblades, one couch. This mod is my way of giving something back to the community
+that has kept these games alive. I hope you enjoy it as much as I enjoyed making it.* ❤️
+
 > **Status: alpha.** It is playable, but some situations still crash the game (see
 > [Known issues](#known-issues)). Save often.
 
@@ -26,6 +32,12 @@ with their own camera, HP/MP gauge, command menu, magic, items and Drive Forms.
   model in memory). Player 2's Sora stands in for Goofy, so player 1 keeps access to every Form; player 2's
   Forms absorb nobody. Each Sora keeps its own Form across zone changes.
 - **Items:** "use on self" and party-member targets work for player 2.
+
+## Screenshots
+
+| Fighting together | Drive Forms for both Soras |
+|---|---|
+| ![Both Soras fighting Shadows in split screen](docs/images/combat.jpg) | ![Player 2's Sora in Valor Form with its own command menu (Revert)](docs/images/drive-forms.jpg) |
 
 ## Requirements
 
