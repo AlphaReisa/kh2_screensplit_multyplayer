@@ -27,3 +27,6 @@ src/kh2coop/build/
 __pycache__/
 *.pyc
 research/snap_*.bin
+
+# release packages
+/dist/
