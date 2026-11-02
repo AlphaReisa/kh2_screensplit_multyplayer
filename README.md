@@ -33,6 +33,10 @@ that has kept these games alive. I hope you enjoy it as much as I enjoyed making
   Forms absorb nobody. Each Sora keeps its own Form across zone changes.
 - **Items:** "use on self" and party-member targets work for player 2.
 
+## Video
+
+[![Watch the mod in action on YouTube](https://img.youtube.com/vi/oKtC4CeLrDs/maxresdefault.jpg)](https://youtu.be/oKtC4CeLrDs)
+
 ## Screenshots
 
 | Fighting together | Drive Forms for both Soras |
