@@ -42,6 +42,7 @@ bool Install();
 void Frame();
 uintptr_t P2Sora();                 // live second YS::SORA, or 0
 bool InP2Update();          // inside the second Sora's object update
+uintptr_t Updating();       // object whose update is running (diagnostics)
 void Shutdown();            // core unload: player 2 leaves (waits for the game thread)
 }
 

@@ -129,6 +129,20 @@ static void h_SlotWriteBack(uint8_t* slot) {
     Global<uint32_t>(0x142a23960) = saved;
 }
 
+// ObjPreload (0x1403e0460(id, priority, x)) of Goofy's party slot (0x237) in coop mode resolves to the second
+// Sora, so the slot's real member would never be loaded — and events, or player 2 leaving, spawn it by other
+// paths. Both are preloaded: the member (resolved with coop mode off) and the second Sora.
+using ObjPreloadFn = void (*)(uint32_t id, uint32_t priority, int x);
+static ObjPreloadFn o_ObjPreload;
+static void h_ObjPreload(uint32_t id, uint32_t priority, int x) {
+    if ((id & 0xfffffff) == 0x237 && g_coopMode) {
+        g_coopMode = false;
+        o_ObjPreload(id, priority, x);
+        g_coopMode = true;
+    }
+    o_ObjPreload(id, priority, x);
+}
+
 // Status slot pool: 80 x 0x278 at 0x142a17290. Slot fields: +0x250 handle of the character's save data,
 // +0x260 character id, +0x264 refcount, +0x268 owner handle.
 // Outside the constructor, StatusSlotFor(charId) returns the first slot in pool order with that character id,
@@ -251,22 +265,30 @@ static void* h_SoraCtor(void* self, void* objentry, int form, uint64_t p4, void*
 }
 
 // Per-object update. The P2 Sora runs with pad 0 and pad 1 swapped, so all its pad reads (its own command
-// menu included) see player 2, in P2's HUD context, so its menu draws on P2's own menu HUD, and with camera 2
-// as the current camera, so its movement and targeting are relative to player 2's view.
+// menu included) see player 2, and with camera 2 as the current camera, so its movement and targeting are
+// relative to player 2's view. (Its command menu switches to P2's HUD context by itself, see cmdmenu.cpp.)
 static bool g_inP2Update = false;
 bool InP2Update() { return g_inP2Update; }
+static uintptr_t g_updating;
+uintptr_t Updating() { return g_updating; }
 
+static void ObjUpdateImpl(intptr_t o);
 static void h_ObjUpdate(intptr_t o) {
+    uintptr_t prev = g_updating;
+    g_updating = (uintptr_t)o;
+    ObjUpdateImpl(o);
+    g_updating = prev;
+}
+
+static void ObjUpdateImpl(intptr_t o) {
     uintptr_t p2 = P2Sora();
     if (p2 && (uintptr_t)o == p2) {
         g_inP2Update = true;
         P2FormScope formScope;
         input::SwapPads();
-        cmdmenu::Enter();
         split::BeginP2View();
         o_ObjUpdate(o);
         split::EndP2View();
-        cmdmenu::Leave();
         input::SwapPads();
         g_inP2Update = false;
         return;
@@ -423,7 +445,7 @@ static bool SlotMemberModelReady() {
     if (!objentry) return true;
     bool coop = g_coopMode;
     g_coopMode = false;   // 0x237 resolves to the member itself
-    GameFn<void (*)(uint32_t, uint32_t, int)>(0x1403e0460)(kPartySlot1Id, 0xffffffff, 0x1e);
+    o_ObjPreload(kPartySlot1Id, 0xffffffff, 0x1e);
     g_coopMode = coop;
     char name[96] = {};
     const char* model = GameFn<const char* (*)(uintptr_t, char*)>(0x1403e0b50)(objentry, name);
@@ -484,18 +506,9 @@ static void FollowJoin() {
         return;
     }
     g_coopMode = true;   // spawns in Goofy's slot from now on (zone loads)
-    // No member in Goofy's slot right now (e.g. it came back without a spawn entry and was swapped, or the
-    // area was entered while player 2 was away): once the zone has settled, player 2's Sora appears next to
-    // player 1 — unless player 1's form has the slot's member absorbed (it then returns on revert).
-    static uintptr_t lastP1;
-    static int settled;
-    uintptr_t p1 = kh2::Player();
-    settled = p1 == lastP1 ? settled + 1 : 0;
-    lastP1 = p1;
-    int charId = SlotMemberCharId();
-    if (settled < 60 || !charId || Player1FormTakes(charId) || !kh2::InIdleAction(p1)) return;
-    if (SpawnPartySlotAt(kh2::Pos(p1), Field<float>(p1, kh2::obj::Yaw))) Log("Sora P2 aparece junto al jugador 1");
-    settled = 0;
+    // No member in Goofy's slot here: the area has no party (e.g. towns, Yen Sid's tower, cutscene areas) or the
+    // member is absorbed by player 1's form. Player 2's Sora appears where the game brings the party in — a
+    // Sora forced into an area without one breaks it (its scripts and 2D layouts do not expect it).
 }
 
 // ---------------------------------------------------------------- frame
@@ -558,7 +571,6 @@ bool Install() {
         && Hook("DriveRequirement", 0x1404005e0, "40535741564883ec300fb741026683f8", (void*)h_DriveRequirement, (void**)&o_DriveRequirement)
         && Hook("AbsorbParty", 0x140400b20, "48895c24084889742410574883ec300f", (void*)h_AbsorbParty, (void**)&o_AbsorbParty)
         && CheckBytes(0x1403d6770, "40554883ec208b8120010000488be9c1")    // generic object destroy
-        && CheckBytes(0x1403e0460, "48895c24104889742418574883ec208b")    // ObjPreload
         && CheckBytes(0x1403e0b50, "48895c2408574883ec204885d2488d79")    // ObjModelName
         && CheckBytes(0x14039e1e0, "48895c2408574883ec208bda488bf945")    // ResFind
         && CheckBytes(0x1403df930, "48895c2410574883ec400f297424300f")    // SpawnObject
@@ -570,6 +582,7 @@ bool Install() {
         && CheckBytes(0x1403c38f0, "40534883ec20488bd9e85200000084c0")    // member able
         && CheckBytes(0x1402be8a0, "40534883ec2081490c01000100488bd9")    // effect kill
         && Hook("SlotWriteBack", 0x1403c2120, "40534883ec20488bd98b8950020000e8", (void*)h_SlotWriteBack, (void**)&o_SlotWriteBack)
+        && Hook("ObjPreload", 0x1403e0460, "48895c24104889742418574883ec208b", (void*)h_ObjPreload, (void**)&o_ObjPreload)
         && Hook("ObjUpdate", 0x1403bfd30, "40534883ec30488bd90f297424208b49", (void*)h_ObjUpdate, (void**)&o_ObjUpdate)
         && CheckBytes(0x1403d6fc0, "48895c2410574883ec3081a124010000")    // ExecCommand, called directly
         && CheckBytes(0x1403fe650, "48895c24084889742410574883ec20f3")    // SpawnFromEntryAt

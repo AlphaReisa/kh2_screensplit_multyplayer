@@ -30,10 +30,37 @@ struct Hit { uintptr_t rip, stack[4]; int idx, dr, count; };
 static Hit g_hits[256];
 static volatile LONG g_hitCount;
 
+// Guard: a permanent write watchpoint (DR0) on one address; writes from unexpected code are logged once each.
+static volatile uintptr_t g_guardAddr;
+static uintptr_t g_guardOk[4];
+
 static LONG CALLBACK WatchHandler(EXCEPTION_POINTERS* e) {
     if (e->ExceptionRecord->ExceptionCode != EXCEPTION_SINGLE_STEP) return EXCEPTION_CONTINUE_SEARCH;
     CONTEXT* c = e->ContextRecord;
     if ((c->Dr6 & 0xF) == 0) return EXCEPTION_CONTINUE_SEARCH;
+    if (g_guardAddr && (c->Dr6 & 1)) {
+        uintptr_t rip = (uintptr_t)c->Rip;
+        bool ok = false;
+        for (uintptr_t k : g_guardOk) ok |= k && rip == k;
+        static uintptr_t seen[32];
+        static int n;
+        bool known = ok;
+        for (int i = 0; i < n && !known; i++) known = seen[i] == rip;
+        if (!known && n < 32) {
+            seen[n++] = rip;
+            void* frames[24];
+            USHORT nf = RtlCaptureStackBackTrace(0, 24, frames, nullptr);
+            uintptr_t st[6] = {};
+            for (USHORT i = 0, j = 0; i < nf && j < 6; i++) {
+                uintptr_t f = (uintptr_t)frames[i];
+                if (f >= g_base && f < g_base + 0x2c00000) st[j++] = f;
+            }
+            Log("GUARDA: escritura en %llx = %08x desde %llx (%llx) <- %llx <- %llx <- %llx <- %llx", (unsigned long long)g_guardAddr,
+                *reinterpret_cast<uint32_t*>(g_guardAddr), Rel(rip), (unsigned long long)rip, Rel(st[1]), Rel(st[2]), Rel(st[3]), Rel(st[4]));
+        }
+        c->Dr6 = 0;
+        return EXCEPTION_CONTINUE_EXECUTION;
+    }
     int dr = (c->Dr6 & 1) ? 0 : (c->Dr6 & 2) ? 1 : (c->Dr6 & 4) ? 2 : 3;
     uintptr_t rip = (uintptr_t)c->Rip;
     uintptr_t stk[4] = {};
@@ -169,6 +196,9 @@ static LONG CALLBACK CrashLogger(EXCEPTION_POINTERS* e) {
     Log("FALLO %08lx en %llx (rip %llx) acceso %llx %llx", code, Rel(c->Rip), (unsigned long long)c->Rip,
         (unsigned long long)e->ExceptionRecord->ExceptionInformation[0], (unsigned long long)e->ExceptionRecord->ExceptionInformation[1]);
     Log("  rax %llx rbx %llx rcx %llx rdx %llx rsi %llx rdi %llx r8 %llx", c->Rax, c->Rbx, c->Rcx, c->Rdx, c->Rsi, c->Rdi, c->R8);
+    if (uintptr_t mgr = Global<uintptr_t>(0x140abd440))
+        Log("  gestor de capas %llx, contador %d, camara %d", (unsigned long long)mgr, Field<int32_t>(mgr, 0x8a70),
+            Global<int32_t>(kh2::CamIndex));
     // return addresses into the game / the core on the stack
     const uintptr_t* sp = reinterpret_cast<const uintptr_t*>(c->Rsp);
     int shown = 0;
@@ -302,11 +332,30 @@ static uintptr_t h_SpawnAt(uintptr_t entry, uintptr_t group, uintptr_t pos) {
     return r;
 }
 
+// Diagnosing: the layout draw list overflowing within one frame (a node tree that loops).
+using LayoutAddFn = void (*)(uintptr_t mgr, uintptr_t node);
+static LayoutAddFn o_LayoutAdd;
+static void h_LayoutAdd(uintptr_t mgr, uintptr_t node) {
+    int n = Field<int32_t>(mgr, 0x8a70);
+    if (n >= 0x3f0) {
+        static int reported;
+        if (reported++ < 12) {
+            uintptr_t obj = party::Updating();
+            Log("CAPAS casi llenas (%d): nodo %llx hijo %x sig %x | objeto en update %llx (%s) <- %llx", n, Rel(node),
+                Field<uint32_t>(node, 0x108), Field<uint32_t>(node, 0x104), Rel(obj),
+                obj == kh2::Player() ? "P1" : obj && obj == party::P2Sora() ? "P2" : "otro", Rel((uintptr_t)_ReturnAddress()));
+        }
+        return;   // diagnosing: no overflow
+    }
+    o_LayoutAdd(mgr, node);
+}
+
 bool Install() {
     g_crashVeh = AddVectoredExceptionHandler(1, CrashLogger);
     return Hook("MapDraw", 0x1401a5180, "40555356574154415541564157488dac", (void*)h_MapDraw, (void**)&o_MapDraw)
         && Hook("EffectKill", 0x1402be8a0, "40534883ec2081490c01000100488bd9", (void*)h_EffectKill, (void**)&o_EffectKill)
         && Hook("EffectStart", 0x1402bec80, "40534883ec4083790804488bd90f2974", (void*)h_EffectStart, (void**)&o_EffectStart)
+        && Hook("LayoutAdd", 0x140189810, "48895c2408574883ec200fb781708a00", (void*)h_LayoutAdd, (void**)&o_LayoutAdd)
         && Hook("SpawnFromEntryAt", 0x1403fe650, "48895c24084889742410574883ec20f3", (void*)h_SpawnAt, (void**)&o_SpawnAt)
         && Hook("EffectPos", 0x1402be970, "488b4930e967460000cccccccccccccc", (void*)h_EffectPos, (void**)&o_EffectPos);
 }
@@ -349,8 +398,48 @@ static void WatchP2Mp() {
     last = mp;
 }
 
+// Diagnosing: the layout draw list of the 2D layout manager (*0x140abd440: count +0x8a70, 0x400 entries of
+// 0x10 at +0x4a70; filled by 0x140189810, emptied by 0x140187f8c from the render step 0x14016fe70).
+static DWORD WINAPI ArmGuard(LPVOID) {
+    HANDLE t = OpenThread(THREAD_GET_CONTEXT | THREAD_SET_CONTEXT | THREAD_SUSPEND_RESUME, FALSE, g_gameThread);
+    if (!t) return 0;
+    SuspendThread(t);
+    CONTEXT c{};
+    c.ContextFlags = CONTEXT_DEBUG_REGISTERS;
+    GetThreadContext(t, &c);
+    c.Dr0 = g_guardAddr;
+    c.Dr7 = (c.Dr7 & ~0xF0003ull) | 1 | (1ull << 16) | (3ull << 18);   // DR0: write, 4 bytes
+    SetThreadContext(t, &c);
+    ResumeThread(t);
+    CloseHandle(t);
+    Log("guarda armada en %llx", (unsigned long long)g_guardAddr);
+    return 0;
+}
+
+static void WatchLayoutList() {
+    uintptr_t mgr = Global<uintptr_t>(0x140abd440);
+    if (!mgr) return;
+    if (mgr + 0x8a70 != g_guardAddr && !g_armed) {   // (re)arm on each new layout manager
+        g_guardOk[0] = VA(0x140189845);
+        g_guardOk[1] = VA(0x140187f8c);
+        g_guardAddr = mgr + 0x8a70;
+        if (!g_veh) g_veh = AddVectoredExceptionHandler(1, WatchHandler);
+        CloseHandle(CreateThread(nullptr, 0, ArmGuard, nullptr, 0, nullptr));
+    }
+    static int maxSeen, lastLog;
+    int n = Field<int32_t>(mgr, 0x8a70);
+    if (n > maxSeen) maxSeen = n;
+    if (n > 0x300 && g_frame - lastLog > 30) {
+        lastLog = g_frame;
+        Log("lista de capas: %d entradas (max %d), pantalla dividida %d", n, maxSeen, split::Running());
+    }
+    static int lastReport;
+    if (g_frame - lastReport > 600) { lastReport = g_frame; Log("lista de capas: max %d en los ultimos 10 s", maxSeen); maxSeen = 0; }
+}
+
 void Frame() {
     g_gameThread = GetCurrentThreadId();
+    WatchLayoutList();
     WatchP2Mp();
     LogXInputUsers();
     if (g_traceFrames > 0) g_traceFrames--;

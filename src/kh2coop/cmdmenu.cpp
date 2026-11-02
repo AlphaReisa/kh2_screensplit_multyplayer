@@ -17,6 +17,9 @@
 // menu's teardown. Inside that context the game creates P2's own COMMAND_DRAW and pools, its HUD groups 1/2 (menu
 // root / entries) are registered as 0x101/0x102 so P1's menu opening or closing does not touch P2's (global
 // HUD show/hide, e.g. for cutscenes, still reaches both), and sprite positions move into the right half.
+// The context is on only for P2's menu code: FieldCmdUpdate / Open / Close (0x1403fd690 / 0x1403fd7e0 /
+// 0x1403fd720) on P2's FIELD_COMMAND, the 2D tasks of P2's menu pieces and its teardown — not for the rest of
+// the second Sora's update, which can open other HUD (event dialogs, choices) that must stay the game's.
 //
 // Entries (dk::COMMAND_ONE) come from a pool with a free list; their release (vtable[0], 0x14015b420), run
 // when the HUD manager retires them, pushes the entry back onto the *current* pool's free list. Retiring
@@ -25,7 +28,8 @@
 // "The player" for P2's own update and menu is P2: PartyMember(0) (0x1403d5c50, party member i: 0 = g_Player,
 // 1..2 = party slots), which the menu uses e.g. for "use item on self", answers the second Sora in P2's context;
 // so does PartyMemberById (0x1403d5c70, the party member with a character id, g_Player first): item targets are
-// stored as character ids and both Soras share Sora's.
+// stored as character ids and both Soras share Sora's. "P2's context" here also covers the second Sora's object
+// update, where its commands execute.
 #include "modules.h"
 #include "game.h"
 #include <utility>
@@ -215,11 +219,13 @@ static uintptr_t h_EntryAlloc(uintptr_t a, uintptr_t b, uintptr_t c, uintptr_t d
 }
 #endif
 
+static bool P2Code() { return g_context || party::InP2Update(); }
+
 static uintptr_t h_PartyMember(int i) {
 #ifdef KH2COOP_DEBUG
     LogCaller("PartyMember", g_context);
 #endif
-    if (i == 0 && g_context)
+    if (i == 0 && P2Code())
         if (uintptr_t p2 = party::P2Sora()) return p2;
     return o_PartyMember(i);
 }
@@ -233,9 +239,19 @@ static void h_EntryRelease(uintptr_t entry) {
     if (swap) SwapContext();
 }
 
+// P2's menu code runs in P2's HUD context.
+using FieldCmdFn = void (*)(uintptr_t fc);
+static FieldCmdFn o_FieldCmdUpdate, o_FieldCmdOpen, o_FieldCmdClose;
+template <FieldCmdFn* O> static void h_FieldCmd(uintptr_t fc) {
+    if (!g_block || fc != Fc2()) { (*O)(fc); return; }
+    Enter();
+    (*O)(fc);
+    Leave();
+}
+
 // A HUD object of P2's menu (registered in P2's groups): its 2D task runs in P2's context (hud.cpp).
 static uintptr_t h_PartyMemberById(int charId) {
-    if (g_context)
+    if (P2Code())
         if (uintptr_t p2 = party::P2Sora())
             if (GameFn<uint16_t (*)(uintptr_t)>(0x1403b5b20)(p2) == charId) return p2;
     return o_PartyMemberById(charId);
@@ -273,6 +289,9 @@ bool Install() {
         && Hook("CmdEntryRelease", 0x14015b420, "4c8b05c910960048b8793f729aafd5b3", (void*)h_EntryRelease, (void**)&o_EntryRelease)
         && Hook("PartyMember", 0x1403d5c50, "85c97508488b0575a96302c3ffc9e90d", (void*)h_PartyMember, (void**)&o_PartyMember)
         && Hook("PartyMemberById", 0x1403d5c70, "48895c24084889742410574883ec208b", (void*)h_PartyMemberById, (void**)&o_PartyMemberById)
+        && Hook("FieldCmdUpdate", 0x1403fd690, "40574883ec204883b9380c000000488b", (void*)h_FieldCmd<&o_FieldCmdUpdate>, (void**)&o_FieldCmdUpdate)
+        && Hook("FieldCmdOpen", 0x1403fd7e0, "40534883ec208b81300c0000488bd9d1", (void*)h_FieldCmd<&o_FieldCmdOpen>, (void**)&o_FieldCmdOpen)
+        && Hook("FieldCmdClose", 0x1403fd720, "40534883ec208b81300c0000488bd9d1", (void*)h_FieldCmd<&o_FieldCmdClose>, (void**)&o_FieldCmdClose)
         && Hook("SpriteSetPos", 0x14016b330, "8991c0010000448981c4010000c3cccc", (void*)h_SetPos, (void**)&o_SetPos)
 #ifdef KH2COOP_DEBUG
         && Hook("CmdEntryAlloc", 0x14015d140, "44894424185556574154415641574883", (void*)h_EntryAlloc, (void**)&o_EntryAlloc)

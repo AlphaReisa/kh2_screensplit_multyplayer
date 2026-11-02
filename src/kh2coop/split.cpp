@@ -123,7 +123,9 @@ static void UpdateP2Camera() {
 // Player 2's view during player 2's object update. Game logic runs with camera index 0 (player 1's camera);
 // what derives from "the current camera" (GetCamera 0x14019ce40 = bank[index]), such as turning the stick
 // into a world direction (0x1403a7fb0) or picking targets, has to use camera 2 for the second Sora. Slot 1
-// is set to camera 2 as last committed and made current, then both are put back.
+// holds camera 2 as last committed and GetCamera answers it during that update. The camera index itself is
+// left at 0: other systems keep per-camera state by index (e.g. the 2D layout draw lists, only reset for
+// camera 0 outside the render), and switching it overflowed them.
 static uint8_t g_cam2Slot[0x80];
 static bool g_cam2SlotValid = false;
 static uint8_t g_slot1Saved[0x80];
@@ -134,15 +136,23 @@ void BeginP2View() {
     uint8_t* slot1 = reinterpret_cast<uint8_t*>(VA(kh2::CamBank) + 0x80);
     memcpy(g_slot1Saved, slot1, sizeof(g_slot1Saved));
     memcpy(slot1, g_cam2Slot, sizeof(g_cam2Slot));
-    Global<int32_t>(kh2::CamIndex) = 1;
     g_p2View = true;
 }
 
 void EndP2View() {
     if (!g_p2View) return;
-    Global<int32_t>(kh2::CamIndex) = 0;
     memcpy(reinterpret_cast<void*>(VA(kh2::CamBank) + 0x80), g_slot1Saved, sizeof(g_slot1Saved));
     g_p2View = false;
+}
+
+// GetCamera(char bankSel) = (sel || 0x140ac183c ? bank 0x140ac1020 : 0x140ac1b50) + index * 0x80.
+using GetCameraFn = uint8_t* (*)(char sel);
+static GetCameraFn o_GetCamera;
+static uint8_t* h_GetCamera(char sel) {
+    uint8_t* cam = o_GetCamera(sel);
+    if (g_p2View && cam == reinterpret_cast<uint8_t*>(VA(kh2::CamBank)) + Global<int32_t>(kh2::CamIndex) * 0x80)
+        return reinterpret_cast<uint8_t*>(VA(kh2::CamBank) + 0x80);
+    return cam;
 }
 
 // Camera 2's view direction straight from its own state: camera slot 1 is only rebuilt during the
@@ -230,6 +240,7 @@ bool Install() {
         && Hook("SpriteBuild", 0x14015f940, "0fb641164c8bd10fb65117440fbf490c", (void*)h_SpriteBuild, (void**)&o_SpriteBuild)
         && Hook("CameraCommit", 0x14019cba0, "48895c240848896c2410488974241848", (void*)h_CamCommit, (void**)&o_CamCommit)
         && Hook("FlushDma", 0x1401a0460, "40534883ec200fb6d9e812caffff8bc8", (void*)h_FlushDma, (void**)&o_FlushDma)
+        && Hook("GetCamera", 0x14019ce40, "84c9750f380df2499200488d0dff4c92", (void*)h_GetCamera, (void**)&o_GetCamera)
         && CheckBytes(0x140163440, "4883ec380f297424204c8d05c0fcffff");   // StartCrossfade(float), called directly
 }
 

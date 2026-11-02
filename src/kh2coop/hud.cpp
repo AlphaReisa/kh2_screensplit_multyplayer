@@ -138,6 +138,7 @@ static void h_Hud2DTask(intptr_t task) {
     uintptr_t p1 = kh2::Player(), p2 = party::P2Sora();
     if (o && o == Global<uintptr_t>(kPlayerGauge) && p1 && p2 && Field<uintptr_t>(o, 0x40) == p2)
         Field<uintptr_t>(o, 0x40) = p1;
+    if (o && o == g_gauge2 && Field<uintptr_t>(o, 0x40) != p2) Field<uintptr_t>(o, 0x40) = p2;   // never a stale Sora
     if (cmdmenu::OwnsHudObject(o)) {   // P2's command menu pieces run in P2's HUD context
         cmdmenu::Enter();
         o_Hud2DTask(task);
